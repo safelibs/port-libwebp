@@ -17,6 +17,7 @@ if(POLICY CMP0072)
 endif()
 
 project(WebP C)
+include(CTest)
 
 # Options for coder / decoder executables.
 if(BUILD_SHARED_LIBS)
@@ -725,6 +726,10 @@ if(WEBP_BUILD_ANIM_UTILS)
     ${WEBP_DEP_GIF_LIBRARIES})
   target_include_directories(anim_dump PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src)
   install(TARGETS anim_dump RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+if(BUILD_TESTING)
+  add_subdirectory(tests)
 endif()
 
 # Install the different headers and libraries.
