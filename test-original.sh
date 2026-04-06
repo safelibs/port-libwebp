@@ -3,22 +3,30 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="${LIBWEBP_ORIGINAL_TEST_IMAGE:-libwebp-original-test:ubuntu24.04}"
+VARIANT="original"
 ONLY=""
+SAFE_DEB_DIR="${LIBWEBP_SAFE_DEB_DIR:-}"
 
 usage() {
   cat <<'EOF'
-usage: test-original.sh [--only <name|runtime-package|source-package|slug>]
+usage: test-original.sh [--variant <original|safe>] [--only <name|runtime-package|source-package|slug|tools|tool:name>]
 
-Builds the checked-in original libwebp inside an Ubuntu 24.04 Docker container,
-installs it into /usr/local inside that container, and then exercises the
-dependent software listed in dependents.json with focused smoke tests.
+In `original` mode, builds the checked-in original libwebp inside an Ubuntu 24.04
+Docker container and installs it into /usr/local inside that container.
+In `safe` mode, installs the generated safe Debian packages from
+$LIBWEBP_SAFE_DEB_DIR inside that same container.
 
---only runs a single dependent check.
+The harness runs an explicit tool-smoke matrix before dependent checks.
+`--only tools` runs just the tool matrix, and `--only tool:<name>` runs one tool smoke.
 EOF
 }
 
 while (($#)); do
   case "$1" in
+    --variant)
+      VARIANT="${2:?missing value for --variant}"
+      shift 2
+      ;;
     --only)
       ONLY="${2:?missing value for --only}"
       shift 2
@@ -35,6 +43,16 @@ while (($#)); do
   esac
 done
 
+case "$VARIANT" in
+  original|safe)
+    ;;
+  *)
+    printf 'unknown variant: %s\n' "$VARIANT" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
 command -v docker >/dev/null 2>&1 || {
   printf 'docker is required to run %s\n' "$0" >&2
   exit 1
@@ -49,6 +67,17 @@ command -v docker >/dev/null 2>&1 || {
   printf 'missing dependents.json\n' >&2
   exit 1
 }
+
+if [[ "$VARIANT" == safe ]]; then
+  [[ -n "$SAFE_DEB_DIR" ]] || {
+    printf 'LIBWEBP_SAFE_DEB_DIR is required for --variant safe\n' >&2
+    exit 1
+  }
+  [[ -d "$SAFE_DEB_DIR" ]] || {
+    printf 'missing safe Debian package directory: %s\n' "$SAFE_DEB_DIR" >&2
+    exit 1
+  }
+fi
 
 docker build -t "$IMAGE_TAG" - <<'DOCKERFILE'
 FROM ubuntu:24.04
@@ -67,6 +96,7 @@ RUN apt-get update \
       gimp \
       libgdk-pixbuf2.0-bin \
       libgif-dev \
+      libglut-dev \
       libjpeg-dev \
       libpng-dev \
       libsail-common-dev \
@@ -91,11 +121,22 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 
-docker run --rm -i \
-  -e "LIBWEBP_TEST_ONLY=$ONLY" \
-  -v "$ROOT":/work:ro \
-  "$IMAGE_TAG" \
-  bash -s <<'CONTAINER_SCRIPT'
+docker_args=(
+  --rm
+  -i
+  -e "LIBWEBP_TEST_ONLY=$ONLY"
+  -e "LIBWEBP_TEST_VARIANT=$VARIANT"
+  -v "$ROOT":/work:ro
+)
+
+if [[ "$VARIANT" == safe ]]; then
+  docker_args+=(
+    -e "LIBWEBP_SAFE_DEB_DIR=/safe-debs"
+    -v "$SAFE_DEB_DIR":/safe-debs:ro
+  )
+fi
+
+docker run "${docker_args[@]}" "$IMAGE_TAG" bash -s <<'CONTAINER_SCRIPT'
 set -euo pipefail
 
 export LANG=C.UTF-8
@@ -103,6 +144,8 @@ export LC_ALL=C.UTF-8
 
 ROOT=/work
 ONLY_FILTER="${LIBWEBP_TEST_ONLY:-}"
+VARIANT="${LIBWEBP_TEST_VARIANT:-original}"
+SAFE_DEB_DIR="${LIBWEBP_SAFE_DEB_DIR:-}"
 HOME=/tmp/libwebp-home
 XDG_RUNTIME_DIR=/tmp/libwebp-runtime
 SRC_COPY=/tmp/libwebp-src
@@ -110,8 +153,10 @@ BUILD_DIR=/tmp/libwebp-build
 FIXTURE_DIR=/tmp/libwebp-fixtures
 TEST_ROOT=/tmp/libwebp-dependent-tests
 MULTIARCH="$(gcc -print-multiarch)"
-LOCAL_LIBDIR=""
-MATCHED_ONLY=0
+ACTIVE_LIBDIR=""
+EXPECTED_LIBRARY_PREFIX=""
+MATCHED_DEPENDENT=0
+MATCHED_TOOL=0
 
 mkdir -p "$HOME" "$XDG_RUNTIME_DIR" "$FIXTURE_DIR" "$TEST_ROOT"
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -161,7 +206,7 @@ assert_uses_local_soname() {
 
   resolved="$(ldd "$target" 2>/dev/null | awk -v lib="$soname" '$1 == lib { print $3; exit }')"
   [[ -n "$resolved" ]] || die "$label does not link against $soname"
-  [[ "$resolved" == /usr/local/* ]] || die "$label resolved $soname to $resolved instead of /usr/local"
+  resolved_matches_expected_prefix "$resolved" || die "$label resolved $soname to $resolved instead of $EXPECTED_LIBRARY_PREFIX"
 }
 
 assert_any_file_under_uses_local_soname() {
@@ -173,12 +218,23 @@ assert_any_file_under_uses_local_soname() {
 
   while IFS= read -r -d '' candidate; do
     resolved="$(ldd "$candidate" 2>/dev/null | awk -v lib="$soname" '$1 == lib { print $3; exit }')"
-    if [[ "$resolved" == /usr/local/* ]]; then
+    if [[ -n "$resolved" ]] && resolved_matches_expected_prefix "$resolved"; then
       return 0
     fi
   done < <(find "$root" -type f -name "$pattern" -print0 2>/dev/null)
 
-  die "$label did not resolve $soname from /usr/local in any file under $root matching $pattern"
+  die "$label did not resolve $soname from $EXPECTED_LIBRARY_PREFIX in any file under $root matching $pattern"
+}
+
+resolved_matches_expected_prefix() {
+  local resolved="$1"
+  local canonical_prefix canonical_resolved
+
+  [[ "$resolved" == "$EXPECTED_LIBRARY_PREFIX"* ]] && return 0
+
+  canonical_prefix="$(realpath "$EXPECTED_LIBRARY_PREFIX" 2>/dev/null || printf '%s\n' "$EXPECTED_LIBRARY_PREFIX")"
+  canonical_resolved="$(realpath "$resolved" 2>/dev/null || printf '%s\n' "$resolved")"
+  [[ "$canonical_resolved" == "$canonical_prefix"* ]]
 }
 
 reset_test_dir() {
@@ -200,6 +256,10 @@ should_run() {
     return 0
   fi
 
+  if [[ "$ONLY_FILTER" == tools || "$ONLY_FILTER" == tool:* ]]; then
+    return 1
+  fi
+
   [[ "$ONLY_FILTER" == "$slug" \
     || "$ONLY_FILTER" == "$name" \
     || "$ONLY_FILTER" == "$runtime_package" \
@@ -217,8 +277,42 @@ run_check() {
     return 0
   fi
 
-  MATCHED_ONLY=1
+  MATCHED_DEPENDENT=1
   log_step "$name"
+  "$func"
+}
+
+should_run_tool() {
+  local tool="$1"
+
+  if [[ -z "$ONLY_FILTER" ]]; then
+    return 0
+  fi
+
+  case "$ONLY_FILTER" in
+    tools)
+      return 0
+      ;;
+    tool:*)
+      [[ "$ONLY_FILTER" == "tool:$tool" ]]
+      return
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+run_tool_check() {
+  local tool="$1"
+  local func="$2"
+
+  if ! should_run_tool "$tool"; then
+    return 0
+  fi
+
+  MATCHED_TOOL=1
+  log_step "Tool smoke: $tool"
   "$func"
 }
 
@@ -270,8 +364,10 @@ build_original_libwebp() {
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     -DBUILD_SHARED_LIBS=ON \
+    -DWEBP_BUILD_ANIM_UTILS=ON \
+    -DWEBP_BUILD_GIF2WEBP=ON \
     -DWEBP_LINK_STATIC=OFF \
-    -DWEBP_BUILD_VWEBP=OFF \
+    -DWEBP_BUILD_VWEBP=ON \
     >/tmp/libwebp-configure.log 2>&1
   cmake --build "$BUILD_DIR" -j"$(nproc)" >/tmp/libwebp-build.log 2>&1
   cmake --install "$BUILD_DIR" >/tmp/libwebp-install.log 2>&1
@@ -279,8 +375,28 @@ build_original_libwebp() {
 
   libwebp_so="$(find /usr/local -name 'libwebp.so.7' -print -quit)"
   [[ -n "$libwebp_so" ]] || die "failed to locate installed libwebp.so.7 under /usr/local"
-  LOCAL_LIBDIR="$(dirname "$libwebp_so")"
-  export LD_LIBRARY_PATH="$LOCAL_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  ACTIVE_LIBDIR="$(dirname "$libwebp_so")"
+  EXPECTED_LIBRARY_PREFIX="$ACTIVE_LIBDIR"
+  export LD_LIBRARY_PATH="$ACTIVE_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+}
+
+install_safe_packages() {
+  local version
+
+  [[ -d "$SAFE_DEB_DIR" ]] || die "missing safe package directory inside container: $SAFE_DEB_DIR"
+
+  dpkg -i "$SAFE_DEB_DIR"/*.deb >/tmp/libwebp-safe-install.log 2>&1 || {
+    cat /tmp/libwebp-safe-install.log >&2
+    exit 1
+  }
+  ldconfig
+
+  version="$(dpkg-query -W -f='${Version}' libwebp7 2>/dev/null || true)"
+  [[ -n "$version" ]] || die "failed to query installed libwebp7 version after safe package install"
+  [[ "$version" == *safelibs* ]] || die "safe package install did not replace libwebp7 as expected: $version"
+
+  ACTIVE_LIBDIR="/usr/lib/$MULTIARCH"
+  EXPECTED_LIBRARY_PREFIX="$ACTIVE_LIBDIR"
 }
 
 prepare_fixtures() {
@@ -319,34 +435,180 @@ pixels[3:6] = bytes([pixels[4], pixels[5], pixels[3]])
 Path("frame2.ppm").write_bytes(parts[0] + b"\n" + parts[1] + b"\n" + parts[2] + b"\n" + pixels)
 PY
 
+  cat >"$FIXTURE_DIR/make-image-fixtures.py" <<'PY'
+from PIL import Image
+
+Image.open("input.ppm").save("input.png")
+frames = [Image.open("frame1.ppm").convert("RGBA"), Image.open("frame2.ppm").convert("RGBA")]
+frames[0].save(
+    "animated.gif",
+    save_all=True,
+    append_images=frames[1:],
+    duration=[80] * len(frames),
+    loop=0,
+    disposal=2,
+)
+PY
+
+  cat >"$FIXTURE_DIR/make-animated-webp.py" <<'PY'
+from PIL import Image
+
+frames = [Image.open("frame1.ppm").convert("RGBA"), Image.open("frame2.ppm").convert("RGBA")]
+frames[0].save(
+    "animated.webp",
+    format="WEBP",
+    save_all=True,
+    append_images=frames[1:],
+    duration=[80] * len(frames),
+    loop=0,
+    lossless=True,
+)
+PY
+
   cp "$ROOT/original/examples/test.webp" "$FIXTURE_DIR/input.webp"
   cp "$ROOT/original/examples/test_ref.ppm" "$FIXTURE_DIR/input.ppm"
   cp "$ROOT/original/examples/test_ref.ppm" "$FIXTURE_DIR/frame1.ppm"
 
-  dwebp "$FIXTURE_DIR/input.webp" -o "$FIXTURE_DIR/input.png" >/tmp/dwebp.log 2>&1
   (
     cd "$FIXTURE_DIR"
     python3 make-animated-frames.py
+    python3 make-image-fixtures.py
   )
+
+  require_nonempty_file "$FIXTURE_DIR/input.png"
+  require_nonempty_file "$FIXTURE_DIR/animated.gif"
+
+  (
+    cd "$FIXTURE_DIR"
+    python3 shotwell-exif.py
+  )
+  require_nonempty_file "$FIXTURE_DIR/shotwell.exif"
+}
+
+ensure_animated_webp_fixture() {
+  if [[ -s "$FIXTURE_DIR/animated.webp" ]]; then
+    return 0
+  fi
+
+  (
+    cd "$FIXTURE_DIR"
+    python3 make-animated-webp.py
+    cp animated.webp animated-copy.webp
+  )
+  require_nonempty_file "$FIXTURE_DIR/animated.webp"
+  require_nonempty_file "$FIXTURE_DIR/animated-copy.webp"
+}
+
+ensure_metadata_webp_fixture() {
+  if [[ -s "$FIXTURE_DIR/metadata.webp" && -s "$FIXTURE_DIR/extracted.exif" ]]; then
+    return 0
+  fi
+
+  webpmux -set exif "$FIXTURE_DIR/shotwell.exif" "$FIXTURE_DIR/input.webp" -o "$FIXTURE_DIR/metadata.webp" >/tmp/webpmux-set.log 2>&1 || {
+    cat /tmp/webpmux-set.log >&2
+    exit 1
+  }
+  webpmux -get exif "$FIXTURE_DIR/metadata.webp" -o "$FIXTURE_DIR/extracted.exif" >/tmp/webpmux-get.log 2>&1 || {
+    cat /tmp/webpmux-get.log >&2
+    exit 1
+  }
+  require_nonempty_file "$FIXTURE_DIR/metadata.webp"
+  require_nonempty_file "$FIXTURE_DIR/extracted.exif"
+  cmp -s "$FIXTURE_DIR/shotwell.exif" "$FIXTURE_DIR/extracted.exif" || die "webpmux EXIF round-trip changed the metadata payload"
+}
+
+smoke_cwebp() {
+  cwebp -quiet -lossless "$ROOT/original/examples/test_ref.ppm" -o "$FIXTURE_DIR/cwebp-output.webp" >/tmp/cwebp.log 2>&1 || {
+    cat /tmp/cwebp.log >&2
+    exit 1
+  }
+  require_nonempty_file "$FIXTURE_DIR/cwebp-output.webp"
+}
+
+smoke_dwebp() {
+  dwebp "$ROOT/original/examples/test.webp" -ppm -o "$FIXTURE_DIR/dwebp-output.ppm" >/tmp/dwebp.log 2>&1 || {
+    cat /tmp/dwebp.log >&2
+    exit 1
+  }
+  require_nonempty_file "$FIXTURE_DIR/dwebp-output.ppm"
+}
+
+smoke_gif2webp() {
+  gif2webp "$FIXTURE_DIR/animated.gif" -o "$FIXTURE_DIR/gif2webp.webp" >/tmp/gif2webp.log 2>&1 || {
+    cat /tmp/gif2webp.log >&2
+    exit 1
+  }
+  require_nonempty_file "$FIXTURE_DIR/gif2webp.webp"
+}
+
+smoke_img2webp() {
   img2webp -loop 0 -lossless \
     -o "$FIXTURE_DIR/animated.webp" \
     "$FIXTURE_DIR/frame1.ppm" \
     "$FIXTURE_DIR/frame2.ppm" \
-    >/tmp/img2webp.log 2>&1
-  (
-    cd "$FIXTURE_DIR"
-    python3 shotwell-exif.py
-    webpmux -set exif shotwell.exif input.webp -o metadata.webp >/tmp/webpmux.log 2>&1
-  )
-
-  require_nonempty_file "$FIXTURE_DIR/input.png"
+    >/tmp/img2webp.log 2>&1 || {
+      cat /tmp/img2webp.log >&2
+      exit 1
+    }
+  cp "$FIXTURE_DIR/animated.webp" "$FIXTURE_DIR/animated-copy.webp"
   require_nonempty_file "$FIXTURE_DIR/animated.webp"
-  require_nonempty_file "$FIXTURE_DIR/metadata.webp"
+  require_nonempty_file "$FIXTURE_DIR/animated-copy.webp"
+}
 
-  webpinfo "$FIXTURE_DIR/input.webp" >/tmp/webpinfo-input.log 2>&1 || die "webpinfo rejected input.webp"
-  webpinfo "$FIXTURE_DIR/animated.webp" >/tmp/webpinfo-animated.log 2>&1 || die "webpinfo rejected animated.webp"
-  webpinfo "$FIXTURE_DIR/metadata.webp" >/tmp/webpinfo-metadata.log 2>&1 || die "webpinfo rejected metadata.webp"
-  require_contains /tmp/webpinfo-metadata.log "EXIF"
+smoke_webpinfo() {
+  ensure_animated_webp_fixture
+  webpinfo "$FIXTURE_DIR/input.webp" >/tmp/webpinfo-input.log 2>&1 || {
+    cat /tmp/webpinfo-input.log >&2
+    exit 1
+  }
+  webpinfo "$FIXTURE_DIR/animated.webp" >/tmp/webpinfo-animated.log 2>&1 || {
+    cat /tmp/webpinfo-animated.log >&2
+    exit 1
+  }
+}
+
+smoke_webpmux() {
+  ensure_metadata_webp_fixture
+}
+
+smoke_anim_dump() {
+  ensure_animated_webp_fixture
+  rm -rf "$FIXTURE_DIR/anim_dump"
+  mkdir -p "$FIXTURE_DIR/anim_dump"
+  anim_dump -pam -folder "$FIXTURE_DIR/anim_dump" -prefix frame_ "$FIXTURE_DIR/animated.webp" >/tmp/anim_dump.log 2>&1 || {
+    cat /tmp/anim_dump.log >&2
+    exit 1
+  }
+  require_nonempty_file "$FIXTURE_DIR/anim_dump/frame_0000.pam"
+}
+
+smoke_anim_diff() {
+  ensure_animated_webp_fixture
+  anim_diff "$FIXTURE_DIR/animated.webp" "$FIXTURE_DIR/animated-copy.webp" >"$FIXTURE_DIR/anim_diff.log" 2>&1 || {
+    cat "$FIXTURE_DIR/anim_diff.log" >&2
+    exit 1
+  }
+  require_contains "$FIXTURE_DIR/anim_diff.log" "are identical"
+}
+
+smoke_vwebp() {
+  timeout 120 xvfb-run -a --server-args="-screen 0 1024x768x24" \
+    vwebp -version >"$FIXTURE_DIR/vwebp.log" 2>&1 || {
+      cat "$FIXTURE_DIR/vwebp.log" >&2
+      exit 1
+    }
+}
+
+run_tool_smokes() {
+  run_tool_check cwebp smoke_cwebp
+  run_tool_check dwebp smoke_dwebp
+  run_tool_check gif2webp smoke_gif2webp
+  run_tool_check img2webp smoke_img2webp
+  run_tool_check webpinfo smoke_webpinfo
+  run_tool_check webpmux smoke_webpmux
+  run_tool_check anim_dump smoke_anim_dump
+  run_tool_check anim_diff smoke_anim_diff
+  run_tool_check vwebp smoke_vwebp
 }
 
 test_gimp() {
@@ -864,11 +1126,24 @@ C
 
 validate_dependents_inventory
 
-log_step "Building original libwebp"
-build_original_libwebp
+case "$VARIANT" in
+  original)
+    log_step "Building original libwebp"
+    build_original_libwebp
+    ;;
+  safe)
+    log_step "Installing safe Debian packages"
+    install_safe_packages
+    ;;
+  *)
+    die "unsupported variant: $VARIANT"
+    ;;
+esac
 
 log_step "Preparing shared fixtures"
 prepare_fixtures
+
+run_tool_smokes
 
 run_check gimp "GIMP" gimp gimp test_gimp
 run_check pillow "Pillow" python3-pil pillow test_pillow
@@ -883,9 +1158,16 @@ run_check webp-pixbuf-loader "webp-pixbuf-loader" webp-pixbuf-loader webp-pixbuf
 run_check sail "SAIL codecs" sail-codecs sail test_sail_codecs
 run_check ffmpeg "FFmpeg libavcodec" libavcodec60 ffmpeg test_ffmpeg
 
-if [[ -n "$ONLY_FILTER" && "$MATCHED_ONLY" -eq 0 ]]; then
-  die "no dependent matched --only=$ONLY_FILTER"
+if [[ -n "$ONLY_FILTER" ]]; then
+  case "$ONLY_FILTER" in
+    tools|tool:*)
+      [[ "$MATCHED_TOOL" -eq 1 ]] || die "no tool matched --only=$ONLY_FILTER"
+      ;;
+    *)
+      [[ "$MATCHED_DEPENDENT" -eq 1 ]] || die "no dependent matched --only=$ONLY_FILTER"
+      ;;
+  esac
 fi
 
-log_step "All dependent smoke tests passed"
+log_step "Harness checks passed"
 CONTAINER_SCRIPT

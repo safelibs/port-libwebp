@@ -6,10 +6,12 @@ mod verify;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use package::{PackageDebArgs, StageDistArgs};
 use std::path::PathBuf;
 use verify::{
     BuildCTestsArgs, BuildUpstreamPublicApiTestArgs, BuildUpstreamToolsArgs, CSmokeArgs,
-    ToolSmokeArgs, VerifyNeededArgs, VerifySonamesArgs, VerifySymbolSubsetArgs, VerifySymbolsArgs,
+    ToolSmokeArgs, VerifyInstallTreeArgs, VerifyNeededArgs, VerifySonamesArgs,
+    VerifySymbolSubsetArgs, VerifySymbolsArgs,
 };
 
 #[derive(Parser, Debug)]
@@ -35,11 +37,14 @@ enum Command {
     VerifySymbolSubset(VerifySymbolSubsetArgs),
     VerifySonames(VerifySonamesArgs),
     VerifyNeeded(VerifyNeededArgs),
+    VerifyInstallTree(VerifyInstallTreeArgs),
     BuildCTests(BuildCTestsArgs),
     BuildUpstreamPublicApiTest(BuildUpstreamPublicApiTestArgs),
     CSmoke(CSmokeArgs),
     BuildUpstreamTools(BuildUpstreamToolsArgs),
     ToolSmoke(ToolSmokeArgs),
+    StageDist(StageDistArgs),
+    PackageDeb(PackageDebArgs),
 }
 
 fn main() -> Result<()> {
@@ -56,10 +61,13 @@ fn main() -> Result<()> {
         Command::VerifySymbolSubset(args) => verify::verify_symbol_subset(&args),
         Command::VerifySonames(args) => verify::verify_sonames(&args),
         Command::VerifyNeeded(args) => verify::verify_needed(&args),
+        Command::VerifyInstallTree(args) => verify::verify_install_tree(&args),
         Command::BuildCTests(args) => verify::build_c_tests(&args),
         Command::BuildUpstreamPublicApiTest(args) => verify::build_upstream_public_api_test(&args),
         Command::CSmoke(args) => verify::c_smoke(&args),
         Command::BuildUpstreamTools(args) => verify::build_upstream_tools(&args),
         Command::ToolSmoke(args) => verify::tool_smoke(&args),
+        Command::StageDist(args) => package::stage_dist(&args),
+        Command::PackageDeb(args) => package::package_deb(&args),
     }
 }

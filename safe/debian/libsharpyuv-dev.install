@@ -1,4 +1,4 @@
-usr/include/webp/sharpyuv/*
+usr/include/webp/sharpyuv/sharpyuv.h
+usr/include/webp/sharpyuv/sharpyuv_csp.h
 usr/lib/*/pkgconfig/libsharpyuv.pc
 usr/lib/*/libsharpyuv.so
-usr/lib/*/libsharpyuv.a

@@ -1,6 +1,11 @@
-AUTHORS
-CONTRIBUTING.md
-NEWS
-PATENTS
-README.md
-doc/
+../original/AUTHORS
+../original/CONTRIBUTING.md
+../original/NEWS
+../original/PATENTS
+../original/README.md
+../original/doc/api.md
+../original/doc/building.md
+../original/doc/specs_generation.md
+../original/doc/tools.md
+../original/doc/webp-container-spec.txt
+../original/doc/webp-lossless-bitstream-spec.txt

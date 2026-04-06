@@ -3,10 +3,15 @@ use crate::link::{
     RelinkManifest, LIBRARIES, RELINK_TARGETS,
 };
 use crate::package::{
-    InstallSurface, EXPECTED_CMAKE_FILES, EXPECTED_HEADERS, EXPECTED_MANPAGES, EXPECTED_PACKAGES,
-    EXPECTED_PKGCONFIG_FILES, EXPECTED_WEBP_MANPAGE_GLOBS, EXPECTED_WEBP_TOOLS,
+    build_upstream_tools_into, build_workspace_libraries, select_upstream_tools,
+    stage_library_artifact, InstallSurface, EXPECTED_CMAKE_FILES, EXPECTED_HEADERS,
+    EXPECTED_MANPAGES, EXPECTED_PACKAGES, EXPECTED_PKGCONFIG_FILES, EXPECTED_WEBP_INSTALL_PATHS,
+    EXPECTED_WEBP_MANPAGE_GLOBS, EXPECTED_WEBP_MANPAGE_PATHS, EXPECTED_WEBP_TOOLS,
 };
-use crate::tools::{nonempty_lines, read_json, run, sort_dedup};
+use crate::tools::{
+    copy_dir_contents, nonempty_lines, read_json, repo_root, reset_dir, run, sort_dedup,
+    workspace_root,
+};
 use anyhow::{bail, Context, Result};
 use clap::Args;
 use std::collections::{BTreeMap, BTreeSet};
@@ -23,6 +28,14 @@ pub struct VerifyNeededArgs {
     pub libs: Vec<String>,
     #[arg(long, value_name = "DIR")]
     pub library_dir: Option<PathBuf>,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct VerifyInstallTreeArgs {
+    #[arg(long)]
+    pub baseline: PathBuf,
+    #[arg(long, value_name = "DIR")]
+    pub package_dir: PathBuf,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -442,6 +455,176 @@ pub fn verify_needed(args: &VerifyNeededArgs) -> Result<()> {
     Ok(())
 }
 
+pub fn verify_install_tree(args: &VerifyInstallTreeArgs) -> Result<()> {
+    let baseline = read_json::<InstallSurface>(&args.baseline)?;
+    assert_exact("package_names", &baseline.package_names, EXPECTED_PACKAGES)?;
+    assert_exact("headers", &baseline.headers, EXPECTED_HEADERS)?;
+    assert_exact(
+        "pkg_config_files",
+        &baseline.pkg_config_files,
+        EXPECTED_PKGCONFIG_FILES,
+    )?;
+    assert_exact("cmake_files", &baseline.cmake_files, EXPECTED_CMAKE_FILES)?;
+    assert_exact("binaries", &baseline.binaries, EXPECTED_WEBP_TOOLS)?;
+    assert_exact("manpages", &baseline.manpages, EXPECTED_MANPAGES)?;
+
+    let packages = extract_binary_packages(&args.package_dir)?;
+    let package_names = packages.keys().cloned().collect::<BTreeSet<_>>();
+    let expected_package_names = EXPECTED_PACKAGES
+        .iter()
+        .map(|package| (*package).to_owned())
+        .collect::<BTreeSet<_>>();
+    if package_names != expected_package_names {
+        bail!(
+            "built package names mismatch: expected {:?}, found {:?}",
+            EXPECTED_PACKAGES,
+            packages.keys().collect::<Vec<_>>()
+        );
+    }
+
+    let webp_files = packages
+        .get("webp")
+        .context("missing extracted webp package")?;
+    let mut expected_webp_binaries = EXPECTED_WEBP_INSTALL_PATHS
+        .iter()
+        .map(|path| (*path).to_owned())
+        .collect::<Vec<_>>();
+    sort_dedup(&mut expected_webp_binaries);
+    assert_exact_values(
+        "webp binaries",
+        &collect_files_under(webp_files, "usr/bin"),
+        expected_webp_binaries,
+    )?;
+    let manpages = webp_files
+        .iter()
+        .filter_map(|path| {
+            path.strip_prefix("usr/share/man/man1/")
+                .map(|_| normalize_manpage_path(path))
+        })
+        .collect::<Vec<_>>();
+    assert_exact("webp manpages", &manpages, EXPECTED_WEBP_MANPAGE_PATHS)?;
+
+    let multiarch = detect_extracted_multiarch(&packages)?;
+    let lib_dir = format!("usr/lib/{multiarch}");
+    assert_exact(
+        "libwebp-dev headers",
+        &collect_files_under(
+            packages
+                .get("libwebp-dev")
+                .context("missing extracted libwebp-dev package")?,
+            "usr/include/webp",
+        ),
+        &[
+            "usr/include/webp/decode.h",
+            "usr/include/webp/demux.h",
+            "usr/include/webp/encode.h",
+            "usr/include/webp/mux.h",
+            "usr/include/webp/mux_types.h",
+            "usr/include/webp/types.h",
+        ],
+    )?;
+    assert_exact(
+        "libsharpyuv-dev headers",
+        &collect_files_under(
+            packages
+                .get("libsharpyuv-dev")
+                .context("missing extracted libsharpyuv-dev package")?,
+            "usr/include/webp/sharpyuv",
+        ),
+        &[
+            "usr/include/webp/sharpyuv/sharpyuv.h",
+            "usr/include/webp/sharpyuv/sharpyuv_csp.h",
+        ],
+    )?;
+    assert_exact_values(
+        "libwebp-dev pkg-config files",
+        &collect_files_under(
+            packages
+                .get("libwebp-dev")
+                .context("missing extracted libwebp-dev package")?,
+            &format!("{lib_dir}/pkgconfig"),
+        ),
+        vec![
+            format!("{lib_dir}/pkgconfig/libwebp.pc"),
+            format!("{lib_dir}/pkgconfig/libwebpdecoder.pc"),
+            format!("{lib_dir}/pkgconfig/libwebpdemux.pc"),
+            format!("{lib_dir}/pkgconfig/libwebpmux.pc"),
+        ],
+    )?;
+    assert_exact_values(
+        "libsharpyuv-dev pkg-config files",
+        &collect_files_under(
+            packages
+                .get("libsharpyuv-dev")
+                .context("missing extracted libsharpyuv-dev package")?,
+            &format!("{lib_dir}/pkgconfig"),
+        ),
+        vec![format!("{lib_dir}/pkgconfig/libsharpyuv.pc")],
+    )?;
+    assert_exact_values(
+        "libwebp-dev cmake files",
+        &collect_files_under(
+            packages
+                .get("libwebp-dev")
+                .context("missing extracted libwebp-dev package")?,
+            &format!("{lib_dir}/cmake/WebP"),
+        ),
+        vec![
+            format!("{lib_dir}/cmake/WebP/WebPConfig.cmake"),
+            format!("{lib_dir}/cmake/WebP/WebPConfigVersion.cmake"),
+            format!("{lib_dir}/cmake/WebP/WebPTargets.cmake"),
+        ],
+    )?;
+    assert_exact_values(
+        "libwebp-dev linker symlinks",
+        &collect_files_with_suffix(
+            packages
+                .get("libwebp-dev")
+                .context("missing extracted libwebp-dev package")?,
+            &format!("{lib_dir}/"),
+            ".so",
+        ),
+        vec![
+            format!("{lib_dir}/libwebp.so"),
+            format!("{lib_dir}/libwebpdecoder.so"),
+            format!("{lib_dir}/libwebpdemux.so"),
+            format!("{lib_dir}/libwebpmux.so"),
+        ],
+    )?;
+    assert_exact_values(
+        "libsharpyuv-dev linker symlinks",
+        &collect_files_with_suffix(
+            packages
+                .get("libsharpyuv-dev")
+                .context("missing extracted libsharpyuv-dev package")?,
+            &format!("{lib_dir}/"),
+            ".so",
+        ),
+        vec![format!("{lib_dir}/libsharpyuv.so")],
+    )?;
+
+    for (package, expected_file) in [
+        ("libwebp7", format!("{lib_dir}/libwebp.so.7")),
+        ("libwebpdecoder3", format!("{lib_dir}/libwebpdecoder.so.3")),
+        ("libwebpdemux2", format!("{lib_dir}/libwebpdemux.so.2")),
+        ("libwebpmux3", format!("{lib_dir}/libwebpmux.so.3")),
+        ("libsharpyuv0", format!("{lib_dir}/libsharpyuv.so.0")),
+    ] {
+        assert_exact_values(
+            &format!("{package} runtime files"),
+            &collect_files_under(
+                packages
+                    .get(package)
+                    .with_context(|| format!("missing extracted {package} package"))?,
+                &lib_dir,
+            ),
+            vec![expected_file],
+        )?;
+    }
+
+    Ok(())
+}
+
 pub fn verify_symbols(args: &VerifySymbolsArgs) -> Result<()> {
     let libraries = resolve_libraries(&args.libs, args.library_dir.as_deref())?;
     for (name, path) in libraries {
@@ -664,43 +847,24 @@ pub fn build_upstream_public_api_test(args: &BuildUpstreamPublicApiTestArgs) -> 
 pub fn build_upstream_tools(args: &BuildUpstreamToolsArgs) -> Result<()> {
     let requested = select_upstream_tools(&args.tools)?;
     let root = workspace_root();
-    let repo_root = root
-        .parent()
-        .context("workspace root should live under the repository root")?;
-    let manifest_path = root.join("Cargo.toml");
     let search_dir = root.join("target/release");
     let prefix = &args.safe_prefix;
 
-    let mut cargo = Command::new("cargo");
-    cargo
-        .arg("build")
-        .arg("--manifest-path")
-        .arg(&manifest_path)
-        .arg("--release")
-        .arg("-p")
-        .arg("libsharpyuv")
-        .arg("-p")
-        .arg("libwebp")
-        .arg("-p")
-        .arg("libwebpdemux")
-        .arg("-p")
-        .arg("libwebpmux");
-    run(&mut cargo)?;
+    build_workspace_libraries(&root)?;
 
-    stage_safe_prefix(&search_dir, prefix)?;
-
-    for tool in &requested {
-        build_single_upstream_tool(tool, prefix, repo_root)?;
-    }
-    Ok(())
+    stage_flat_prefix(&search_dir, prefix)?;
+    build_upstream_tools_into(
+        &requested,
+        &prefix.join("include"),
+        &prefix.join("lib"),
+        &prefix.join("bin"),
+    )
 }
 
 pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
     let requested = select_upstream_tools(&args.tools)?;
     let root = workspace_root();
-    let repo_root = root
-        .parent()
-        .context("workspace root should live under the repository root")?;
+    let repo_root = repo_root()?;
     let bin_dir = args.prefix.join("bin");
     let lib_dir = args.prefix.join("lib");
     let smoke_dir = root.join("build/tool-smoke");
@@ -710,8 +874,7 @@ pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
     let decoded_ppm = smoke_dir.join("smoke-decoded.ppm");
     let muxed_webp = smoke_dir.join("smoke-img2webp.webp");
 
-    fs::create_dir_all(&smoke_dir)
-        .with_context(|| format!("failed to create {}", smoke_dir.display()))?;
+    reset_dir(&smoke_dir)?;
 
     if requested.iter().any(|tool| tool == "cwebp") {
         let mut encode = Command::new(bin_dir.join("cwebp"));
@@ -777,6 +940,34 @@ pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
         let mut webpinfo = Command::new(bin_dir.join("webpinfo"));
         webpinfo.arg(input).env("LD_LIBRARY_PATH", &lib_dir);
         run(&mut webpinfo)?;
+    }
+
+    if requested.iter().any(|tool| tool == "gif2webp") {
+        let mut gif2webp = Command::new(bin_dir.join("gif2webp"));
+        gif2webp.arg("-version").env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut gif2webp)?;
+    }
+
+    if requested.iter().any(|tool| tool == "anim_diff") {
+        let mut anim_diff = Command::new(bin_dir.join("anim_diff"));
+        anim_diff.arg("-version").env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut anim_diff)?;
+    }
+
+    if requested.iter().any(|tool| tool == "anim_dump") {
+        let mut anim_dump = Command::new(bin_dir.join("anim_dump"));
+        anim_dump.arg("-version").env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut anim_dump)?;
+    }
+
+    if requested.iter().any(|tool| tool == "vwebp") {
+        let mut vwebp = Command::new("xvfb-run");
+        vwebp
+            .arg("-a")
+            .arg(bin_dir.join("vwebp"))
+            .arg("-version")
+            .env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut vwebp)?;
     }
 
     Ok(())
@@ -934,45 +1125,6 @@ fn run_sharpyuv_runtime_smoke(library_dir: Option<&Path>) -> Result<()> {
     run(&mut smoke)
 }
 
-fn select_upstream_tools(tools: &[String]) -> Result<Vec<String>> {
-    let allowed = ["cwebp", "dwebp", "img2webp", "webpinfo", "webpmux"]
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    let mut selected = tools
-        .iter()
-        .map(|tool| {
-            if !allowed.contains(tool.as_str()) {
-                bail!("unknown upstream tool `{tool}`");
-            }
-            Ok(tool.clone())
-        })
-        .collect::<Result<Vec<_>>>()?;
-    sort_dedup(&mut selected);
-    Ok(selected)
-}
-
-fn stage_safe_prefix(search_dir: &Path, prefix: &Path) -> Result<()> {
-    let root = workspace_root();
-    let include_src = root.join("include");
-    let include_dst = prefix.join("include");
-    let lib_dst = prefix.join("lib");
-    let bin_dst = prefix.join("bin");
-
-    fs::create_dir_all(&include_dst)
-        .with_context(|| format!("failed to create {}", include_dst.display()))?;
-    fs::create_dir_all(&lib_dst)
-        .with_context(|| format!("failed to create {}", lib_dst.display()))?;
-    fs::create_dir_all(&bin_dst)
-        .with_context(|| format!("failed to create {}", bin_dst.display()))?;
-
-    copy_dir_contents(&include_src, &include_dst)?;
-    stage_library_artifact(search_dir, "libsharpyuv", &lib_dst)?;
-    stage_library_artifact(search_dir, "libwebp", &lib_dst)?;
-    stage_library_artifact(search_dir, "libwebpdemux", &lib_dst)?;
-    stage_library_artifact(search_dir, "libwebpmux", &lib_dst)?;
-    Ok(())
-}
-
 fn prepare_upstream_include_glue(include_dir: &Path, dest: &Path) -> Result<()> {
     let webp_headers = include_dir.join("webp");
     let webp_dest = dest.join("src/webp");
@@ -983,140 +1135,6 @@ fn prepare_upstream_include_glue(include_dir: &Path, dest: &Path) -> Result<()> 
     fs::create_dir_all(&webp_dest)
         .with_context(|| format!("failed to create {}", webp_dest.display()))?;
     copy_dir_contents(&webp_headers, &webp_dest)
-}
-
-fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
-    for entry in walkdir::WalkDir::new(src) {
-        let entry = entry?;
-        let path = entry.path();
-        let relative = path
-            .strip_prefix(src)
-            .with_context(|| format!("failed to compute relative path for {}", path.display()))?;
-        let target = dst.join(relative);
-        if entry.file_type().is_dir() {
-            fs::create_dir_all(&target)
-                .with_context(|| format!("failed to create {}", target.display()))?;
-            continue;
-        }
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("failed to create {}", parent.display()))?;
-        }
-        fs::copy(path, &target).with_context(|| {
-            format!("failed to copy {} to {}", path.display(), target.display())
-        })?;
-    }
-    Ok(())
-}
-
-fn stage_library_artifact(search_dir: &Path, logical_name: &str, lib_dir: &Path) -> Result<()> {
-    let artifact = find_library_artifact(search_dir, logical_name)?;
-    let info = inspect_shared_library(&artifact)?;
-    let artifact_name = artifact
-        .file_name()
-        .with_context(|| format!("missing file name for {}", artifact.display()))?;
-    let linker_name = format!("{logical_name}.so");
-    let staged_artifact = lib_dir.join(artifact_name);
-
-    fs::copy(&artifact, &staged_artifact).with_context(|| {
-        format!(
-            "failed to copy shared library {} to {}",
-            artifact.display(),
-            staged_artifact.display()
-        )
-    })?;
-
-    let soname_path = lib_dir.join(&info.soname);
-    if soname_path != staged_artifact {
-        fs::copy(&artifact, &soname_path).with_context(|| {
-            format!(
-                "failed to stage SONAME copy {} to {}",
-                artifact.display(),
-                soname_path.display()
-            )
-        })?;
-    }
-
-    let linker_path = lib_dir.join(linker_name);
-    if linker_path != staged_artifact && linker_path != soname_path {
-        fs::copy(&artifact, &linker_path).with_context(|| {
-            format!(
-                "failed to stage linker-name copy {} to {}",
-                artifact.display(),
-                linker_path.display()
-            )
-        })?;
-    }
-
-    Ok(())
-}
-
-fn build_single_upstream_tool(tool: &str, prefix: &Path, repo_root: &Path) -> Result<()> {
-    let output = prefix.join("bin").join(tool);
-    let include_dir = prefix.join("include");
-    let lib_dir = prefix.join("lib");
-    let original_src = repo_root.join("original/src");
-    let mut compile = Command::new("cc");
-
-    compile
-        .arg("-std=c11")
-        .arg("-O2")
-        .arg(format!("-I{}", include_dir.display()))
-        .arg(format!("-I{}", include_dir.join("webp").display()))
-        .arg(format!("-I{}", original_src.display()));
-    for source in upstream_tool_sources(tool, repo_root)? {
-        compile.arg(source);
-    }
-    compile
-        .arg(format!("-L{}", lib_dir.display()))
-        .arg("-Wl,-rpath,$ORIGIN/../lib")
-        .arg("-lwebpmux")
-        .arg("-lwebpdemux")
-        .arg("-lwebp")
-        .arg("-lsharpyuv");
-    if !matches!(
-        tool,
-        "cwebp" | "dwebp" | "img2webp" | "webpinfo" | "webpmux"
-    ) {
-        bail!("unknown upstream tool `{tool}`");
-    }
-    compile.arg("-lm").arg("-o").arg(&output);
-    run(&mut compile)
-}
-
-fn upstream_tool_sources(tool: &str, repo_root: &Path) -> Result<Vec<PathBuf>> {
-    let original = repo_root.join("original");
-    let mut sources = vec![
-        original.join("examples/example_util.c"),
-        original.join("imageio/imageio_util.c"),
-    ];
-
-    match tool {
-        "cwebp" => sources.insert(0, original.join("examples/cwebp.c")),
-        "dwebp" => {
-            sources.insert(0, original.join("examples/dwebp.c"));
-            sources.push(original.join("imageio/image_enc.c"));
-        }
-        "img2webp" => sources.insert(0, original.join("examples/img2webp.c")),
-        "webpinfo" => sources.insert(0, original.join("examples/webpinfo.c")),
-        "webpmux" => sources.insert(0, original.join("examples/webpmux.c")),
-        other => bail!("unknown upstream tool `{other}`"),
-    }
-
-    if matches!(tool, "cwebp" | "dwebp" | "img2webp") {
-        sources.extend([
-            original.join("imageio/image_dec.c"),
-            original.join("imageio/jpegdec.c"),
-            original.join("imageio/metadata.c"),
-            original.join("imageio/pngdec.c"),
-            original.join("imageio/pnmdec.c"),
-            original.join("imageio/tiffdec.c"),
-            original.join("imageio/webpdec.c"),
-            original.join("imageio/wicdec.c"),
-        ]);
-    }
-
-    Ok(sources)
 }
 
 fn ensure_nonempty_file(path: &Path) -> Result<()> {
@@ -1206,11 +1224,118 @@ fn find_system_library(logical_name: &str) -> Result<PathBuf> {
     fallback.with_context(|| format!("failed to locate system path for {logical_name}"))
 }
 
-fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("xtask manifest should live under the workspace root")
-        .to_path_buf()
+fn stage_flat_prefix(search_dir: &Path, prefix: &Path) -> Result<()> {
+    let root = workspace_root();
+    let include_src = root.join("include");
+    let include_dst = prefix.join("include");
+    let lib_dst = prefix.join("lib");
+
+    reset_dir(prefix)?;
+    fs::create_dir_all(&include_dst)
+        .with_context(|| format!("failed to create {}", include_dst.display()))?;
+    fs::create_dir_all(&lib_dst)
+        .with_context(|| format!("failed to create {}", lib_dst.display()))?;
+    fs::create_dir_all(prefix.join("bin"))
+        .with_context(|| format!("failed to create {}", prefix.join("bin").display()))?;
+
+    copy_dir_contents(&include_src, &include_dst)?;
+    for library in LIBRARIES {
+        stage_library_artifact(search_dir, library, &lib_dst)?;
+    }
+    Ok(())
+}
+
+fn extract_binary_packages(package_dir: &Path) -> Result<BTreeMap<String, BTreeSet<String>>> {
+    let temp_dir = TempDir::new().context("failed to create temporary extraction directory")?;
+    let mut packages = BTreeMap::new();
+
+    for entry in fs::read_dir(package_dir)
+        .with_context(|| format!("failed to read {}", package_dir.display()))?
+    {
+        let path = entry?.path();
+        if path.extension().is_none_or(|extension| extension != "deb") {
+            continue;
+        }
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .with_context(|| format!("invalid package filename {}", path.display()))?;
+        let Some((package_name, _)) = file_name.split_once('_') else {
+            continue;
+        };
+        if !EXPECTED_PACKAGES.contains(&package_name) {
+            continue;
+        }
+
+        let extract_root = temp_dir.path().join(package_name);
+        fs::create_dir_all(&extract_root)
+            .with_context(|| format!("failed to create {}", extract_root.display()))?;
+        let mut extract = Command::new("dpkg-deb");
+        extract.arg("-x").arg(&path).arg(&extract_root);
+        run(&mut extract)?;
+        packages.insert(
+            package_name.to_owned(),
+            collect_relative_files(&extract_root)?,
+        );
+    }
+
+    Ok(packages)
+}
+
+fn collect_relative_files(root: &Path) -> Result<BTreeSet<String>> {
+    let mut files = BTreeSet::new();
+    for entry in walkdir::WalkDir::new(root) {
+        let entry = entry?;
+        if !entry.file_type().is_file() && !entry.file_type().is_symlink() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(root).with_context(|| {
+            format!(
+                "failed to compute relative path for {}",
+                entry.path().display()
+            )
+        })?;
+        files.insert(relative.to_string_lossy().into_owned());
+    }
+    Ok(files)
+}
+
+fn collect_files_under(files: &BTreeSet<String>, prefix: &str) -> Vec<String> {
+    let mut matches = files
+        .iter()
+        .filter(|path| path.starts_with(&(prefix.to_owned() + "/")))
+        .cloned()
+        .collect::<Vec<_>>();
+    sort_dedup(&mut matches);
+    matches
+}
+
+fn collect_files_with_suffix(files: &BTreeSet<String>, prefix: &str, suffix: &str) -> Vec<String> {
+    let mut matches = files
+        .iter()
+        .filter(|path| path.starts_with(prefix) && path.ends_with(suffix))
+        .cloned()
+        .collect::<Vec<_>>();
+    sort_dedup(&mut matches);
+    matches
+}
+
+fn normalize_manpage_path(path: &str) -> String {
+    path.strip_suffix(".gz").unwrap_or(path).to_owned()
+}
+
+fn detect_extracted_multiarch(packages: &BTreeMap<String, BTreeSet<String>>) -> Result<String> {
+    for files in packages.values() {
+        for path in files {
+            if let Some(rest) = path.strip_prefix("usr/lib/") {
+                let triplet = rest.split('/').next().unwrap_or_default();
+                if !triplet.is_empty() {
+                    return Ok(triplet.to_owned());
+                }
+            }
+        }
+    }
+    bail!("failed to determine multiarch triplet from extracted package contents")
 }
 
 fn assert_exact(label: &str, actual: &[String], expected: &[&str]) -> Result<()> {
@@ -1218,6 +1343,10 @@ fn assert_exact(label: &str, actual: &[String], expected: &[&str]) -> Result<()>
         .iter()
         .map(|value| (*value).to_owned())
         .collect::<Vec<_>>();
+    assert_exact_values(label, actual, expected)
+}
+
+fn assert_exact_values(label: &str, actual: &[String], expected: Vec<String>) -> Result<()> {
     if actual != expected {
         bail!(
             "{label} mismatch: expected {:?}, found {:?}",

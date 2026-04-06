@@ -1,1 +1,9 @@
-usr/bin/*
+usr/bin/cwebp
+usr/bin/dwebp
+usr/bin/gif2webp
+usr/bin/img2webp
+usr/bin/vwebp
+usr/bin/webpinfo
+usr/bin/webpmux
+usr/bin/anim_diff
+usr/bin/anim_dump

@@ -7,20 +7,15 @@ include /usr/share/dpkg/architecture.mk
 export DH_VERBOSE=1
 
 %:
-	dh $@ --buildsystem=cmake
+	dh $@
 
 execute_after_dh_auto_clean:
-	rm -rf debian/tmp-static static
-
-override_dh_auto_configure:
-	dh_auto_configure                         -- -DCMAKE_INSTALL_RPATH="" -DBUILD_SHARED_LIBS=YES
-	dh_auto_configure --builddirectory=static -- -DCMAKE_INSTALL_RPATH="" -DBUILD_SHARED_LIBS=NO
+	rm -rf dist
 
 override_dh_auto_build:
-	dh_auto_build
-	dh_auto_build --builddirectory=static
+	cargo run -p xtask --manifest-path $(CURDIR)/Cargo.toml -- stage-dist --multiarch $(DEB_HOST_MULTIARCH)
 
 override_dh_auto_install:
-	dh_auto_install
-	dh_auto_install --builddirectory=static --destdir=debian/tmp-static
-	cp debian/tmp-static/usr/lib/${DEB_HOST_MULTIARCH}/*.a debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/
+	rm -rf debian/tmp
+	mkdir -p debian/tmp
+	cp -a dist/. debian/tmp/

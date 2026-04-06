@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 libc.workspace = true
-webp-core = { path = "../webp-core" }
+webp-core = { path = "../webp-core", default-features = false, features = ["decode"] }
 
 [build-dependencies]
 serde_json.workspace = true

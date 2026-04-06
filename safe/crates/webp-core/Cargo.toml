@@ -5,6 +5,14 @@ license.workspace = true
 publish = false
 version.workspace = true
 
+[features]
+default = ["decode", "demux", "encode", "mux", "sharpyuv"]
+decode = []
+demux = ["decode"]
+encode = []
+mux = ["decode", "demux", "encode"]
+sharpyuv = []
+
 [dependencies]
 c2rust-bitfields.workspace = true
 libc.workspace = true

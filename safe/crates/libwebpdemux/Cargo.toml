@@ -14,7 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 libc.workspace = true
 webp-abi = { path = "../webp-abi" }
-webp-core = { path = "../webp-core" }
+webp-core = { path = "../webp-core", default-features = false, features = ["decode", "demux"] }
 
 [build-dependencies]
 cc = "1.2.20"

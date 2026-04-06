@@ -7,7 +7,7 @@ use std::process::Command;
 
 fn main() {
     compile_encoder_support();
-    ensure_sharpyuv_dependency();
+    ensure_webp_dependency();
     emit_linker_baseline("libwebpdemux", &["-lc"]);
     println!("cargo:rustc-link-lib=dylib=webp");
 }
@@ -38,11 +38,11 @@ fn compile_encoder_support() {
     build.compile("webpdemux_encoder_support");
 }
 
-fn ensure_sharpyuv_dependency() {
+fn ensure_webp_dependency() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let workspace_manifest = manifest_dir.join("../../Cargo.toml");
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    let target_dir = out_dir.join("sharpyuv-target");
+    let target_dir = out_dir.join("webp-target");
     let profile = env::var("PROFILE").unwrap();
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut build = Command::new(cargo);
@@ -54,7 +54,7 @@ fn ensure_sharpyuv_dependency() {
         .arg("--target-dir")
         .arg(&target_dir)
         .arg("-p")
-        .arg("libsharpyuv");
+        .arg("libwebp");
     if profile == "release" {
         build.arg("--release");
     } else if profile != "debug" {
@@ -62,13 +62,12 @@ fn ensure_sharpyuv_dependency() {
     }
 
     let status = build.status().expect("failed to invoke nested cargo build");
-    assert!(status.success(), "nested cargo build for libsharpyuv failed");
+    assert!(status.success(), "nested cargo build for libwebp failed");
 
     println!(
         "cargo:rustc-link-search=native={}",
         profile_output_dir(&target_dir, &profile).display()
     );
-    println!("cargo:rustc-link-lib=dylib=sharpyuv");
 }
 
 fn profile_output_dir(target_dir: &Path, profile: &str) -> PathBuf {

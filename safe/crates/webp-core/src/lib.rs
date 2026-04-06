@@ -8,11 +8,16 @@ pub mod alloc;
 pub mod checked;
 mod compat;
 pub mod cpu;
+#[cfg(feature = "decode")]
 pub mod decode;
+#[cfg(feature = "demux")]
 pub mod demux;
 pub mod dsp;
+#[cfg(feature = "encode")]
 pub mod encode;
+#[cfg(feature = "mux")]
 pub mod mux;
+#[cfg(feature = "sharpyuv")]
 pub mod sharpyuv;
 pub mod threading;
 pub mod utils;
