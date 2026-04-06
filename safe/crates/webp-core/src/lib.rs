@@ -12,6 +12,7 @@ pub mod decode;
 pub mod demux;
 pub mod dsp;
 pub mod encode;
+pub mod mux;
 pub mod sharpyuv;
 pub mod threading;
 pub mod utils;

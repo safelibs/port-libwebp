@@ -1,9 +1,23 @@
 [package]
 name = "libwebpmux"
+build = "build.rs"
 edition.workspace = true
 license.workspace = true
 publish = false
 version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "webpmux"
+path = "src/lib.rs"
+
+[dependencies]
+libc.workspace = true
+webp-abi = { path = "../webp-abi" }
+
+[build-dependencies]
+cc = "1.2.20"
+serde_json.workspace = true
 
 [lints]
 workspace = true

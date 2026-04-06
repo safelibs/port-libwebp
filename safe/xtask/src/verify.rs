@@ -72,6 +72,14 @@ pub struct BuildCTestsArgs {
 }
 
 #[derive(Args, Clone, Debug)]
+pub struct BuildUpstreamPublicApiTestArgs {
+    #[arg(long)]
+    pub source: PathBuf,
+    #[arg(long, value_name = "DIR")]
+    pub library_dir: Option<PathBuf>,
+}
+
+#[derive(Args, Clone, Debug)]
 pub struct BuildUpstreamToolsArgs {
     #[arg(long, value_name = "TOOL", num_args = 1..)]
     pub tools: Vec<String>,
@@ -603,6 +611,56 @@ pub fn build_c_tests(args: &BuildCTestsArgs) -> Result<()> {
     run(&mut build)
 }
 
+pub fn build_upstream_public_api_test(args: &BuildUpstreamPublicApiTestArgs) -> Result<()> {
+    let root = workspace_root();
+    let search_dir = args
+        .library_dir
+        .clone()
+        .unwrap_or_else(|| root.join("target/release"));
+    let build_dir = root.join("build/tests");
+    let source_dir = root.join("tests/c");
+    let include_glue_dir = build_dir.join("upstream-include");
+    let webpmux = find_library_artifact(&search_dir, "libwebpmux")?;
+    let webpdemux = find_library_artifact(&search_dir, "libwebpdemux")?;
+    let webp = find_library_artifact(&search_dir, "libwebp")?;
+
+    prepare_upstream_include_glue(&root.join("include"), &include_glue_dir)?;
+    fs::create_dir_all(&build_dir)
+        .with_context(|| format!("failed to create {}", build_dir.display()))?;
+
+    let mut configure = Command::new("cmake");
+    configure
+        .arg("-S")
+        .arg(&source_dir)
+        .arg("-B")
+        .arg(&build_dir)
+        .arg("-DTEST_SUITE=upstream_public_api")
+        .arg(format!(
+            "-DUPSTREAM_PUBLIC_API_SOURCE={}",
+            args.source.display()
+        ))
+        .arg(format!(
+            "-DUPSTREAM_INCLUDE_GLUE_DIR={}",
+            include_glue_dir.display()
+        ))
+        .arg(format!("-DWEBPMUX_LIBRARY={}", webpmux.display()))
+        .arg(format!("-DWEBPDEMUX_LIBRARY={}", webpdemux.display()))
+        .arg(format!("-DWEBP_LIBRARY={}", webp.display()))
+        .arg(format!(
+            "-DWEBP_INCLUDE_DIR={}",
+            root.join("include").display()
+        ));
+    run(&mut configure)?;
+
+    let mut build = Command::new("cmake");
+    build
+        .arg("--build")
+        .arg(&build_dir)
+        .arg("--target")
+        .arg("webp_public_api_test");
+    run(&mut build)
+}
+
 pub fn build_upstream_tools(args: &BuildUpstreamToolsArgs) -> Result<()> {
     let requested = select_upstream_tools(&args.tools)?;
     let root = workspace_root();
@@ -624,7 +682,9 @@ pub fn build_upstream_tools(args: &BuildUpstreamToolsArgs) -> Result<()> {
         .arg("-p")
         .arg("libwebp")
         .arg("-p")
-        .arg("libwebpdemux");
+        .arg("libwebpdemux")
+        .arg("-p")
+        .arg("libwebpmux");
     run(&mut cargo)?;
 
     stage_safe_prefix(&search_dir, prefix)?;
@@ -648,6 +708,7 @@ pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
     let sample_ppm = repo_root.join("original/examples/test_ref.ppm");
     let generated_webp = smoke_dir.join("smoke-lossless.webp");
     let decoded_ppm = smoke_dir.join("smoke-decoded.ppm");
+    let muxed_webp = smoke_dir.join("smoke-img2webp.webp");
 
     fs::create_dir_all(&smoke_dir)
         .with_context(|| format!("failed to create {}", smoke_dir.display()))?;
@@ -680,6 +741,42 @@ pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
             .env("LD_LIBRARY_PATH", &lib_dir);
         run(&mut decode)?;
         ensure_nonempty_file(&decoded_ppm)?;
+    }
+
+    if requested.iter().any(|tool| tool == "img2webp") {
+        let mut img2webp = Command::new(bin_dir.join("img2webp"));
+        img2webp
+            .arg("-o")
+            .arg(&muxed_webp)
+            .arg(&sample_ppm)
+            .env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut img2webp)?;
+        ensure_nonempty_file(&muxed_webp)?;
+    }
+
+    if requested.iter().any(|tool| tool == "webpmux") {
+        let input = if muxed_webp.exists() {
+            &muxed_webp
+        } else {
+            &sample_webp
+        };
+        let mut webpmux = Command::new(bin_dir.join("webpmux"));
+        webpmux
+            .arg("-info")
+            .arg(input)
+            .env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut webpmux)?;
+    }
+
+    if requested.iter().any(|tool| tool == "webpinfo") {
+        let input = if muxed_webp.exists() {
+            &muxed_webp
+        } else {
+            &sample_webp
+        };
+        let mut webpinfo = Command::new(bin_dir.join("webpinfo"));
+        webpinfo.arg(input).env("LD_LIBRARY_PATH", &lib_dir);
+        run(&mut webpinfo)?;
     }
 
     Ok(())
@@ -838,7 +935,9 @@ fn run_sharpyuv_runtime_smoke(library_dir: Option<&Path>) -> Result<()> {
 }
 
 fn select_upstream_tools(tools: &[String]) -> Result<Vec<String>> {
-    let allowed = ["cwebp", "dwebp"].into_iter().collect::<BTreeSet<_>>();
+    let allowed = ["cwebp", "dwebp", "img2webp", "webpinfo", "webpmux"]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
     let mut selected = tools
         .iter()
         .map(|tool| {
@@ -870,7 +969,20 @@ fn stage_safe_prefix(search_dir: &Path, prefix: &Path) -> Result<()> {
     stage_library_artifact(search_dir, "libsharpyuv", &lib_dst)?;
     stage_library_artifact(search_dir, "libwebp", &lib_dst)?;
     stage_library_artifact(search_dir, "libwebpdemux", &lib_dst)?;
+    stage_library_artifact(search_dir, "libwebpmux", &lib_dst)?;
     Ok(())
+}
+
+fn prepare_upstream_include_glue(include_dir: &Path, dest: &Path) -> Result<()> {
+    let webp_headers = include_dir.join("webp");
+    let webp_dest = dest.join("src/webp");
+
+    if dest.exists() {
+        fs::remove_dir_all(dest).with_context(|| format!("failed to remove {}", dest.display()))?;
+    }
+    fs::create_dir_all(&webp_dest)
+        .with_context(|| format!("failed to create {}", webp_dest.display()))?;
+    copy_dir_contents(&webp_headers, &webp_dest)
 }
 
 fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
@@ -890,8 +1002,9 @@ fn copy_dir_contents(src: &Path, dst: &Path) -> Result<()> {
             fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create {}", parent.display()))?;
         }
-        fs::copy(path, &target)
-            .with_context(|| format!("failed to copy {} to {}", path.display(), target.display()))?;
+        fs::copy(path, &target).with_context(|| {
+            format!("failed to copy {} to {}", path.display(), target.display())
+        })?;
     }
     Ok(())
 }
@@ -942,23 +1055,29 @@ fn build_single_upstream_tool(tool: &str, prefix: &Path, repo_root: &Path) -> Re
     let output = prefix.join("bin").join(tool);
     let include_dir = prefix.join("include");
     let lib_dir = prefix.join("lib");
+    let original_src = repo_root.join("original/src");
     let mut compile = Command::new("cc");
 
     compile
         .arg("-std=c11")
         .arg("-O2")
         .arg(format!("-I{}", include_dir.display()))
-        .arg(format!("-I{}", include_dir.join("webp").display()));
+        .arg(format!("-I{}", include_dir.join("webp").display()))
+        .arg(format!("-I{}", original_src.display()));
     for source in upstream_tool_sources(tool, repo_root)? {
         compile.arg(source);
     }
     compile
         .arg(format!("-L{}", lib_dir.display()))
         .arg("-Wl,-rpath,$ORIGIN/../lib")
+        .arg("-lwebpmux")
         .arg("-lwebpdemux")
         .arg("-lwebp")
         .arg("-lsharpyuv");
-    if !matches!(tool, "cwebp" | "dwebp") {
+    if !matches!(
+        tool,
+        "cwebp" | "dwebp" | "img2webp" | "webpinfo" | "webpmux"
+    ) {
         bail!("unknown upstream tool `{tool}`");
     }
     compile.arg("-lm").arg("-o").arg(&output);
@@ -970,14 +1089,6 @@ fn upstream_tool_sources(tool: &str, repo_root: &Path) -> Result<Vec<PathBuf>> {
     let mut sources = vec![
         original.join("examples/example_util.c"),
         original.join("imageio/imageio_util.c"),
-        original.join("imageio/image_dec.c"),
-        original.join("imageio/jpegdec.c"),
-        original.join("imageio/metadata.c"),
-        original.join("imageio/pngdec.c"),
-        original.join("imageio/pnmdec.c"),
-        original.join("imageio/tiffdec.c"),
-        original.join("imageio/webpdec.c"),
-        original.join("imageio/wicdec.c"),
     ];
 
     match tool {
@@ -986,7 +1097,23 @@ fn upstream_tool_sources(tool: &str, repo_root: &Path) -> Result<Vec<PathBuf>> {
             sources.insert(0, original.join("examples/dwebp.c"));
             sources.push(original.join("imageio/image_enc.c"));
         }
+        "img2webp" => sources.insert(0, original.join("examples/img2webp.c")),
+        "webpinfo" => sources.insert(0, original.join("examples/webpinfo.c")),
+        "webpmux" => sources.insert(0, original.join("examples/webpmux.c")),
         other => bail!("unknown upstream tool `{other}`"),
+    }
+
+    if matches!(tool, "cwebp" | "dwebp" | "img2webp") {
+        sources.extend([
+            original.join("imageio/image_dec.c"),
+            original.join("imageio/jpegdec.c"),
+            original.join("imageio/metadata.c"),
+            original.join("imageio/pngdec.c"),
+            original.join("imageio/pnmdec.c"),
+            original.join("imageio/tiffdec.c"),
+            original.join("imageio/webpdec.c"),
+            original.join("imageio/wicdec.c"),
+        ]);
     }
 
     Ok(sources)

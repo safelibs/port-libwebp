@@ -310,6 +310,12 @@ dependencies = [
 [[package]]
 name = "libwebpmux"
 version = "0.1.0"
+dependencies = [
+ "cc",
+ "libc",
+ "serde_json",
+ "webp-abi",
+]
 
 [[package]]
 name = "linux-raw-sys"
