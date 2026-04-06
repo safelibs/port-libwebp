@@ -23,8 +23,6 @@
 
 namespace {
 
-const VP8CPUInfo default_VP8GetCPUInfo = VP8GetCPUInfo;
-
 int AddFrame(WebPAnimEncoder** const enc,
              const WebPAnimEncoderOptions& anim_config, int* const width,
              int* const height, int timestamp_ms, const uint8_t data[],
@@ -124,7 +122,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   int width = 0, height = 0, timestamp_ms = 0;
   uint32_t bit_pos = 0;
 
-  ExtractAndDisableOptimizations(default_VP8GetCPUInfo, data, size, &bit_pos);
+  ConsumeOptimizationBits(data, size, &bit_pos);
 
   // Extract a configuration from the packed bits.
   WebPAnimEncoderOptions anim_config;

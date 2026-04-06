@@ -21,16 +21,10 @@
 #include "src/webp/decode.h"
 #include "src/webp/encode.h"
 
-namespace {
-
-const VP8CPUInfo default_VP8GetCPUInfo = VP8GetCPUInfo;
-
-}  // namespace
-
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   uint32_t bit_pos = 0;
 
-  ExtractAndDisableOptimizations(default_VP8GetCPUInfo, data, size, &bit_pos);
+  ConsumeOptimizationBits(data, size, &bit_pos);
 
   // Init the source picture.
   WebPPicture pic;

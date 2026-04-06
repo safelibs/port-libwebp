@@ -23,7 +23,6 @@
 #include "./img_alpha.h"
 #include "./img_grid.h"
 #include "./img_peak.h"
-#include "src/dsp/dsp.h"
 #include "src/webp/encode.h"
 
 //------------------------------------------------------------------------------
@@ -72,46 +71,12 @@ static WEBP_INLINE uint32_t Extract(uint32_t max_value,
 }
 
 //------------------------------------------------------------------------------
-// Some functions to override VP8GetCPUInfo and disable some optimizations.
-
-#ifdef __cplusplus
-extern "C" VP8CPUInfo VP8GetCPUInfo;
-#else
-extern VP8CPUInfo VP8GetCPUInfo;
-#endif
-static VP8CPUInfo GetCPUInfo;
-
-static WEBP_INLINE int GetCPUInfoNoSSE41(CPUFeature feature) {
-  if (feature == kSSE4_1 || feature == kAVX) return 0;
-  return GetCPUInfo(feature);
-}
-
-static WEBP_INLINE int GetCPUInfoNoAVX(CPUFeature feature) {
-  if (feature == kAVX) return 0;
-  return GetCPUInfo(feature);
-}
-
-static WEBP_INLINE int GetCPUInfoForceSlowSSSE3(CPUFeature feature) {
-  if (feature == kSlowSSSE3 && GetCPUInfo(kSSE3)) {
-    return 1;  // we have SSE3 -> force SlowSSSE3
-  }
-  return GetCPUInfo(feature);
-}
-
-static WEBP_INLINE int GetCPUInfoOnlyC(CPUFeature feature) {
-  (void)feature;
-  return 0;
-}
-
-static WEBP_INLINE void ExtractAndDisableOptimizations(
-    VP8CPUInfo default_VP8GetCPUInfo, const uint8_t data[], size_t size,
-    uint32_t* const bit_pos) {
-  GetCPUInfo = default_VP8GetCPUInfo;
-  const VP8CPUInfo kVP8CPUInfos[5] = {GetCPUInfoOnlyC, GetCPUInfoForceSlowSSSE3,
-                                      GetCPUInfoNoSSE41, GetCPUInfoNoAVX,
-                                      GetCPUInfo};
-  int VP8GetCPUInfo_index = Extract(4, data, size, bit_pos);
-  VP8GetCPUInfo = kVP8CPUInfos[VP8GetCPUInfo_index];
+// Some corpora dedicate a few bits to internal CPU feature overrides. Keep
+// consuming those bits even though the public API does not expose such hooks.
+static WEBP_INLINE void ConsumeOptimizationBits(const uint8_t data[],
+                                                size_t size,
+                                                uint32_t* const bit_pos) {
+  (void)Extract(4, data, size, bit_pos);
 }
 
 //------------------------------------------------------------------------------

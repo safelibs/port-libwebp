@@ -14,17 +14,29 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "examples/anim_util.h"
-#include "imageio/imageio_util.h"
+#include <stdint.h>
+
+#include "src/webp/decode.h"
 #include "src/webp/demux.h"
+
+namespace {
+
+int CheckSizeArgumentsOverflow(uint64_t stride, size_t height) {
+  const uint64_t total_size = stride * height;
+  int ok = (total_size == (size_t)total_size);
+  ok = ok && ((uint64_t)(int)stride == stride);
+  return ok;
+}
+
+}  // namespace
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // WebPAnimDecoderGetInfo() is too late to check the canvas size as
   // WebPAnimDecoderNew() will handle the allocations.
   WebPBitstreamFeatures features;
   if (WebPGetFeatures(data, size, &features) == VP8_STATUS_OK) {
-    if (!ImgIoUtilCheckSizeArgumentsOverflow(features.width * 4,
-                                             features.height)) {
+    if (!CheckSizeArgumentsOverflow((uint64_t)features.width * 4,
+                                    features.height)) {
       return 0;
     }
   }
@@ -36,8 +48,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
   WebPAnimInfo info;
   if (!WebPAnimDecoderGetInfo(dec, &info)) goto End;
-  if (!ImgIoUtilCheckSizeArgumentsOverflow(info.canvas_width * 4,
-                                           info.canvas_height)) {
+  if (!CheckSizeArgumentsOverflow((uint64_t)info.canvas_width * 4,
+                                  info.canvas_height)) {
     goto End;
   }
 

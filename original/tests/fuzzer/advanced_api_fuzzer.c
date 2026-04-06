@@ -14,12 +14,34 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "./fuzz_utils.h"
-#include "src/utils/rescaler_utils.h"
 #include "src/webp/decode.h"
+
+static int GetScaledDimensionsNoInternalApi(int src_width, int src_height,
+                                            int* const scaled_width,
+                                            int* const scaled_height) {
+  int width = *scaled_width;
+  int height = *scaled_height;
+  const int max_size = INT_MAX / 2;
+
+  if (width == 0 && src_height > 0) {
+    width = (int)(((uint64_t)src_width * height + src_height - 1) / src_height);
+  }
+  if (height == 0 && src_width > 0) {
+    height = (int)(((uint64_t)src_height * width + src_width - 1) / src_width);
+  }
+  if (width <= 0 || height <= 0 || width > max_size || height > max_size) {
+    return 0;
+  }
+
+  *scaled_width = width;
+  *scaled_height = height;
+  return 1;
+}
 
 int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   WebPDecoderConfig config;
@@ -77,9 +99,9 @@ int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
       if (config.options.use_scaling) {
         int scaled_width = config.options.scaled_width;
         int scaled_height = config.options.scaled_height;
-        if (WebPRescalerGetScaledDimensions(config.input.width,
-                                            config.input.height, &scaled_width,
-                                            &scaled_height)) {
+        if (GetScaledDimensionsNoInternalApi(config.input.width,
+                                             config.input.height, &scaled_width,
+                                             &scaled_height)) {
           size_t fuzz_px_limit = kFuzzPxLimit;
           if (scaled_width != config.input.width ||
               scaled_height != config.input.height) {
