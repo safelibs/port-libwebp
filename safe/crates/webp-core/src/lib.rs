@@ -9,6 +9,7 @@ pub mod checked;
 mod compat;
 pub mod cpu;
 pub mod decode;
+pub mod demux;
 pub mod dsp;
 pub mod sharpyuv;
 pub mod threading;

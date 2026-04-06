@@ -8,8 +8,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(TEST_SUITE "all" CACHE STRING "Single C test suite to configure")
 set(WEBP_INCLUDE_DIR "" CACHE PATH "Path to safe/include")
 set(WEBPDECODER_LIBRARY "" CACHE FILEPATH "Path to libwebpdecoder shared library")
+set(WEBPDEMUX_LIBRARY "" CACHE FILEPATH "Path to libwebpdemux shared library")
 set(WEBP_LIBRARY "" CACHE FILEPATH "Path to libwebp shared library")
 set(ORACLE_WEBPDECODER_LIBRARY "" CACHE FILEPATH "Path to the system libwebpdecoder shared library")
+set(ORACLE_WEBPDEMUX_LIBRARY "" CACHE FILEPATH "Path to the system libwebpdemux shared library")
 set(ORACLE_WEBP_LIBRARY "" CACHE FILEPATH "Path to the system libwebp shared library")
 set(TEST_WEBP_PATH "" CACHE FILEPATH "Path to original/examples/test.webp")
 set(TEST_PPM_PATH "" CACHE FILEPATH "Path to original/examples/test_ref.ppm")
@@ -22,6 +24,23 @@ function(add_decode_api_target target_name library_path library_label oracle_pat
     PRIVATE
       TEST_WEBP_PATH="${TEST_WEBP_PATH}"
       TEST_PPM_PATH="${TEST_PPM_PATH}"
+      TEST_LIBRARY_NAME="${library_label}"
+      ORACLE_LIBRARY_PATH="${oracle_path}"
+  )
+  target_link_libraries(${target_name} PRIVATE "${library_path}" "${CMAKE_DL_LIBS}")
+
+  get_filename_component(library_dir "${library_path}" DIRECTORY)
+  target_link_options(${target_name} PRIVATE "-Wl,-rpath,${library_dir}")
+  add_test(NAME ${target_name} COMMAND ${target_name})
+  set_tests_properties(${target_name} PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${library_dir}")
+endfunction()
+
+function(add_demux_animdecode_target target_name library_path library_label oracle_path)
+  add_executable(${target_name} demux_animdecode_test.c)
+  target_include_directories(${target_name} PRIVATE "${WEBP_INCLUDE_DIR}")
+  target_compile_definitions(
+    ${target_name}
+    PRIVATE
       TEST_LIBRARY_NAME="${library_label}"
       ORACLE_LIBRARY_PATH="${oracle_path}"
   )
@@ -48,6 +67,17 @@ if(TEST_SUITE STREQUAL "decode_api" OR TEST_SUITE STREQUAL "all")
       "${WEBP_LIBRARY}"
       "libwebp"
       "${ORACLE_WEBP_LIBRARY}"
+    )
+  endif()
+endif()
+
+if(TEST_SUITE STREQUAL "demux_animdecode" OR TEST_SUITE STREQUAL "all")
+  if(EXISTS "${WEBPDEMUX_LIBRARY}")
+    add_demux_animdecode_target(
+      demux_animdecode_webpdemux
+      "${WEBPDEMUX_LIBRARY}"
+      "libwebpdemux"
+      "${ORACLE_WEBPDEMUX_LIBRARY}"
     )
   endif()
 endif()

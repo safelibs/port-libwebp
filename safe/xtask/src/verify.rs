@@ -340,8 +340,10 @@ pub fn build_c_tests(args: &BuildCTestsArgs) -> Result<()> {
     let sample_webp = repo_root.join("original/examples/test.webp");
     let sample_ppm = repo_root.join("original/examples/test_ref.ppm");
     let webpdecoder = find_library_artifact(&search_dir, "libwebpdecoder")?;
+    let webpdemux = find_library_artifact(&search_dir, "libwebpdemux")?;
     let webp = find_library_artifact(&search_dir, "libwebp")?;
     let oracle_webpdecoder = find_system_library("libwebpdecoder")?;
+    let oracle_webpdemux = find_system_library("libwebpdemux")?;
     let oracle_webp = find_system_library("libwebp")?;
 
     fs::create_dir_all(&build_dir)
@@ -356,10 +358,15 @@ pub fn build_c_tests(args: &BuildCTestsArgs) -> Result<()> {
         .arg(format!("-DTEST_SUITE={}", args.suite))
         .arg(format!("-DWEBP_INCLUDE_DIR={}", include_dir.display()))
         .arg(format!("-DWEBPDECODER_LIBRARY={}", webpdecoder.display()))
+        .arg(format!("-DWEBPDEMUX_LIBRARY={}", webpdemux.display()))
         .arg(format!("-DWEBP_LIBRARY={}", webp.display()))
         .arg(format!(
             "-DORACLE_WEBPDECODER_LIBRARY={}",
             oracle_webpdecoder.display()
+        ))
+        .arg(format!(
+            "-DORACLE_WEBPDEMUX_LIBRARY={}",
+            oracle_webpdemux.display()
         ))
         .arg(format!("-DORACLE_WEBP_LIBRARY={}", oracle_webp.display()))
         .arg(format!("-DTEST_WEBP_PATH={}", sample_webp.display()))
