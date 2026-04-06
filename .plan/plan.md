@@ -1,176 +1,101 @@
 # Context
 
-`/home/yans/code/safelibs/ported/libwebp/original` is upstream `libwebp` `v1.3.2` with:
+`/home/yans/code/safelibs/ported/libwebp` already contains both sides of the port:
 
-- CMake and autotools build graphs in `original/CMakeLists.txt`, `original/src/*/Makefile.am`, and `original/sharpyuv/Makefile.am`
-- Debian packaging metadata in `original/debian/`
-- command-line tools in `original/examples/`, helper code in `original/imageio/` and `original/extras/`, and manpages in `original/man/`
-- upstream regression and fuzz tests in `original/tests/public_api_test.c` and `original/tests/fuzzer/`
-- a dependent-runtime Docker harness in `test-original.sh`
-- compatibility/security inputs in `dependents.json` and `relevant_cves.json`
+- `original/` is the upstream C implementation, including the public headers in `original/src/webp/*.h`, the SharpYuv headers in `original/sharpyuv/*.h`, the example/tools sources in `original/examples/`, the Debian packaging metadata in `original/debian/`, and the upstream test surface in `original/tests/`.
+- `safe/` is an existing Rust workspace, not a blank slate. `safe/Cargo.toml` defines eight members: the shared ABI and implementation crates (`crates/webp-abi`, `crates/webp-core`), five exported library crates (`crates/libsharpyuv`, `crates/libwebp`, `crates/libwebpdecoder`, `crates/libwebpdemux`, `crates/libwebpmux`), and `xtask`.
+- `safe/crates/webp-core/src/lib.rs` is `#![no_std]` and feature-gates the translated codec modules. The workspace defaults in `safe/Cargo.toml` set `unsafe_op_in_unsafe_fn = "deny"` and `clippy::undocumented_unsafe_blocks = "deny"`, but `safe/crates/webp-core/src/lib.rs` currently carries a crate-level `#![allow(unsafe_op_in_unsafe_fn)]`. The implementation plan must work within this existing lint setup, reduce or justify remaining exceptions, and avoid introducing new blanket allowances or ad hoc build conventions.
+- The exported Rust libraries are already shaped for drop-in C consumption: each `lib*` crate is a `cdylib`/`staticlib`, and each `build.rs` emits SONAME and version-script settings from `safe/abi/original/`.
 
-There is no Rust implementation yet; `safe/` does not exist and must become a standard Rust workspace that emits a drop-in Ubuntu 24.04 replacement for the upstream package family.
+The compatibility contract is already materialized as checked-in artifacts and should be treated as the source of truth:
 
-The compatibility target is broader than the public header set:
+- `safe/abi/original/{libsharpyuv,libwebp,libwebpdecoder,libwebpdemux,libwebpmux}.exports`
+- `safe/abi/original/sonames.json`
+- `safe/abi/original/needed.json`
+- `safe/abi/original/install-surface.json`
+- `safe/abi/original/relink-manifest.json`
 
-- Installed public headers come from `original/src/webp/{decode,demux,encode,mux,mux_types,types}.h` and `original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
-- Shared-library SONAMEs come from libtool `-version-info` in:
-  - `original/src/Makefile.am`
-  - `original/src/demux/Makefile.am`
-  - `original/src/mux/Makefile.am`
-  - `original/sharpyuv/Makefile.am`
-- Debian package splits come from `original/debian/control` and `original/debian/*.install`
-- Installed tools are the C example programs in `original/examples/` plus animation utilities enabled by `original/CMakeLists.txt`
+The build, packaging, and verification plumbing is also already present and should be extended in place:
 
-The upstream package family and install surface that the Rust port must preserve is:
+- `safe/xtask/src/baseline.rs` captures the upstream ABI/install baseline.
+- `safe/xtask/src/link.rs` defines the shared-library set and the original-object relink fixtures.
+- `safe/xtask/src/package.rs` owns the explicit package/header/pkg-config/CMake/tool/manpage contract and the Docker-backed Debian build.
+- `safe/xtask/src/verify.rs` already implements symbol, SONAME, DT_NEEDED, install-tree, C-test, upstream-public-API, relink, tool-smoke, fuzzer-build, and unsafe-audit commands.
+- `safe/tests/c/CMakeLists.txt` configures the existing C regression suites: `decode_api`, `demux_animdecode`, `encode_api`, `runtime_abi`, and `upstream_public_api`.
 
-- Runtime libraries:
-  - `libwebp.so.7` from `8:8:1`
-  - `libwebpdecoder.so.3` from `4:8:1`
-  - `libwebpdemux.so.2` from `2:14:0`
-  - `libwebpmux.so.3` from `3:13:0`
-  - `libsharpyuv.so.0` from `0:1:0`
-- Debian binary packages:
-  - `libwebp7`
-  - `libwebpdecoder3`
-  - `libwebpdemux2`
-  - `libwebpmux3`
-  - `libsharpyuv0`
-  - `libwebp-dev`
-  - `libsharpyuv-dev`
-  - `webp`
-- Installed tools expected in the `webp` package on Ubuntu 24.04:
-  - `cwebp`
-  - `dwebp`
-  - `gif2webp`
-  - `img2webp`
-  - `vwebp`
-  - `webpinfo`
-  - `webpmux`
-  - `anim_diff`
-  - `anim_dump`
-- Installed manpages expected in the `webp` package:
-  - `cwebp.1`
-  - `dwebp.1`
-  - `gif2webp.1`
-  - `img2webp.1`
-  - `vwebp.1`
-  - `webpinfo.1`
-  - `webpmux.1`
+The repository already has the runtime-harness inputs required by the goal:
 
-A temporary shared-library build of `original/` confirms the exported ABI that later checkers must treat as authoritative:
+- `dependents.json` enumerates 12 Ubuntu 24.04 dependent applications/packages.
+- `test-original.sh` builds an Ubuntu 24.04 Docker image inline, validates `dependents.json` at `test-original.sh:319-353`, prepares shared fixtures, runs the tool-smoke matrix at `test-original.sh:602-611`, and then executes the dependent checks in order at `test-original.sh:1127-1159`.
+- The harness is not purely runtime-only. It already compiles consumer probes for several SDK-style dependents using installed dev packages:
+  - WebKitGTK at `test-original.sh:738`
+  - Qt 6 image formats at `test-original.sh:803-804`
+  - SDL2_image at `test-original.sh:862`
+  - libvips at `test-original.sh:918`
+  - SAIL at `test-original.sh:1114`
+- The remaining dependents are exercised as functional runtime consumers: GIMP, Pillow, Emacs, Shotwell, LibreOffice, FFmpeg, and `webp-pixbuf-loader`.
 
-- `libsharpyuv.so.0.0.1`: 5 dynamic exports
-- `libwebpdecoder.so.3.1.8`: 45 dynamic exports
-- `libwebp.so.7.1.8`: 85 dynamic exports
-- `libwebpdemux.so.2.0.14`: 20 dynamic exports
-- `libwebpmux.so.3.0.13`: 24 dynamic exports
+The upstream test surface under `original/tests/` is smaller than the overall compatibility goal, so the plan must combine upstream tests with the checked-in safe-side regressions:
 
-Notable ABI details that are not fully described by installed headers:
+- `original/tests/CMakeLists.txt:1-11` defines only `webp_public_api_test`.
+- `original/tests/fuzzer/` contains the upstream fuzzer sources that the Rust port must still compile against the shipped package surface.
+- `safe/crates/webp-core/tests/encode_security.rs`, `safe/crates/webp-core/tests/cve_2020_36332.rs`, and `safe/crates/webp-core/tests/malformed_huffman_tables.rs` already capture the two checked-in CVE classes from `relevant_cves.json`.
+- `safe/docs/unsafe-audit.md` is already generated by `cargo run -p xtask -- unsafe-audit` and should continue to be updated in place rather than replaced by a new reporting mechanism.
 
-- `libwebp` and `libwebpdecoder` both export the global object symbol `VP8GetCPUInfo`, declared in `original/src/dsp/cpu.c:176-258`
-- `libwebp` and `libwebpdecoder` export non-header helper symbols such as `VP8CheckSignature`, `VP8GetInfo`, `VP8LCheckSignature`, and `VP8LGetInfo`
-- `libwebp` and `libwebpdecoder` export worker hook APIs backed by `original/src/utils/thread_utils.c:350-365`
-- `libwebp` depends on `libsharpyuv`; `libwebpdemux` and `libwebpmux` depend on `libwebp`; `libwebpmux` and `libsharpyuv` both retain a `libm` dependency
-
-The linker dependency graph is part of the compatibility contract and must be
-preserved exactly, not inferred from higher-level smoke tests:
-
-- `libsharpyuv.so.0` must keep `DT_NEEDED` entries for `libm.so.6` and `libc.so.6`
-- `libwebpdecoder.so.3` must keep `DT_NEEDED` entries only for `libc.so.6`
-- `libwebp.so.7` must keep `DT_NEEDED` entries for `libsharpyuv.so.0`, `libm.so.6`, and `libc.so.6`
-- `libwebpdemux.so.2` must keep `DT_NEEDED` entries for `libwebp.so.7` and `libc.so.6`
-- `libwebpmux.so.3` must keep `DT_NEEDED` entries for `libwebp.so.7`, `libm.so.6`, and `libc.so.6`
-
-These edges matter because existing binaries and downstream shared objects bind
-them at load time; an accidental extra edge such as `libwebpdecoder.so.3 ->
-libwebp.so.7` is a drop-in compatibility regression even if API tests still
-pass.
-
-The highest-risk implementation areas are:
-
-- checked allocation and overflow guards in `original/src/utils/utils.c:159-210` and `original/src/utils/utils.h:30-56`
-- thread-worker override hooks in `original/src/utils/thread_utils.c:263-365` and `original/src/utils/thread_utils.h`
-- CPU dispatch and `VP8GetCPUInfo` global state in `original/src/dsp/cpu.c:176-258` and `original/src/dsp/cpu.h`
-- incremental decode and decode front-end state in `original/src/dec/webp_dec.c` and `original/src/dec/idec_dec.c`
-- lossless Huffman allocation logic in `original/src/dec/vp8l_dec.c:360-520` and `original/src/utils/huffman_utils.c:217-292`
-- animation decode and encode state machines in `original/src/demux/anim_decode.c` and `original/src/mux/anim_encode.c`
-- picture/view ownership rules in `original/src/enc/picture_enc.c`, `original/src/enc/picture_rescale_enc.c`, and `original/src/enc/webp_enc.c`
-
-The non-memory-safety CVE requirements from `relevant_cves.json` are:
-
-- `CVE-2016-9085`: checked arithmetic for width, height, stride, bytes-per-pixel, and animation frame sizing
-- `CVE-2020-36332`: bound and validate Huffman-table allocation derived from malformed lossless bitstreams
-
-Existing artifacts that the plan must reuse instead of rediscovering:
-
-- `original/` as the upstream source snapshot
-- `original/tests/public_api_test.c` and `original/tests/fuzzer/`
-- `original/examples/`, `original/imageio/`, `original/extras/`, and `original/man/`
-- `original/debian/`, `original/src/*.pc.in`, `original/src/demux/libwebpdemux.pc.in`, `original/src/mux/libwebpmux.pc.in`, and `original/cmake/WebPConfig.cmake.in`
-- `test-original.sh`
-- `dependents.json`
-- `relevant_cves.json`
-
-Scratch outputs already present in the working tree, such as `build-check/` and the untracked `.o` and `.a` files under `original/`, should be treated only as incidental local build byproducts. The generated workflow should not depend on them being present in a clean checkout; phase 1 must derive checked-in baselines from `original/` and then use those checked-in baselines afterward.
-
-Because Cargo cannot directly emit five independently versioned shared libraries from one crate, the Rust port should be a workspace rooted at `safe/Cargo.toml` with:
-
-- `crates/webp-abi` for `repr(C)` types, constants, and layout tests
-- `crates/webp-core` for shared codec/container/runtime logic
-- five export crates:
-  - `crates/libwebp`
-  - `crates/libwebpdecoder`
-  - `crates/libwebpdemux`
-  - `crates/libwebpmux`
-  - `crates/libsharpyuv`
-- `xtask/` for baseline capture, symbol/SONAME/`DT_NEEDED` verification, upstream C-test and tool compilation, relink checks, Debian packaging, and install-tree validation
-
-The safest implementation order is to mirror the upstream source partition first, prove ABI parity continuously, then reduce `unsafe` only after compatibility is locked down.
+This plan therefore solves a stabilization problem, not a greenfield translation problem: preserve and harden the existing Rust port so that it remains source-compatible, link-compatible, runtime-compatible, minimally unsafe, and Ubuntu-packageable while being verified through explicit, linear implementer -> software-tester -> senior-tester loops.
 
 # Generated Workflow Contract
 
-The generated workflow that later planners derive from this document must obey all of the following rules:
-
-1. Execution must be strictly linear. Do not create `parallel_groups`.
-2. The workflow YAML must be fully self-contained and inline-only.
+1. The generated workflow must execute strictly linearly. Do not use `parallel_groups`.
+2. The generated workflow YAML must be fully self-contained and inline-only.
 3. Do not use top-level `include`.
 4. Do not use phase-level `prompt_file`, `workflow_file`, `workflow_dir`, `checks`, or any other YAML indirection.
-5. Every verifier must be an explicit top-level `check` phase with its own `phase_id`.
-6. Every verifier must remain in the implement block it verifies and must use exactly one fixed `bounce_target`, pointing to that implement phase.
-7. Do not use `bounce_targets` lists, dynamic routing, or agent-selected bounce behavior.
-8. Any test, lint, build, packaging, Docker, or analysis command a verifier must run has to be written directly into that verifier’s instructions. Do not model those commands as separate non-agentic phases.
-9. Every implement prompt in the generated workflow must instruct the agent to commit its work to git before yielding.
-10. Consume existing checked-in artifacts in place:
-    - `original/` is the source-of-truth upstream tree.
-    - `dependents.json` is the source-of-truth dependent inventory.
-    - `relevant_cves.json` is the source-of-truth non-memory CVE dataset.
-    - `test-original.sh` is the source-of-truth dependent/runtime harness and must be modified in place.
-    - `original/tests/public_api_test.c` and `original/tests/fuzzer/` are the source-of-truth upstream tests and must be compiled or wired in, not rewritten from scratch.
-    - `original/examples/`, `original/imageio/`, `original/extras/`, and `original/man/` are the source-of-truth tool and helper sources and must be reused rather than reimplemented in Rust.
-    - `original/debian/`, upstream `.pc.in` files, and `original/cmake/WebPConfig.cmake.in` are the packaging/install baselines and must be reused.
-11. Do not rely on `build-check/` or any current untracked `.o`, `.a`, or generated binaries as workflow inputs; they are non-canonical scratch artifacts.
-12. If a derived artifact is needed repeatedly, create it once in phase 1 and check it in under `safe/abi/original/` or another explicit `safe/` path. Later phases must consume that derived artifact rather than rebuilding it ad hoc.
-13. The derived baseline artifacts that later phases must reuse are:
-    - symbol export lists per shared library
-    - SONAME and `DT_NEEDED` manifests
-    - install-surface manifest listing expected packages, headers, pkg-config files, CMake files, binaries, and manpages
-    - relink fixture manifest for original object files and their link lines
-14. Compatibility verifiers must compare Rust outputs against the checked-in baselines from phase 1, not against informal expectations.
-15. Any phase that claims a shared library is ABI-complete must run an explicit `verify-needed` check that consumes `safe/abi/original/needed.json`; application smoke tests, package-content checks, and original-object relink tests do not substitute for exact `DT_NEEDED` comparison.
-16. The package/tooling contract must stay explicit: later workflow prompts must name every required binary in the `webp` package and must not collapse that requirement into a wildcard like “preserve `usr/bin/*`”.
+5. Reuse the implementation phase IDs and phase order from this document exactly. Later generators must not merge, split, rename, or reorder them.
+6. Every verifier must be an explicit top-level `check` phase.
+7. Every implement phase must be followed by exactly two explicit agentic verifiers in this order:
+   - a `software-tester` check phase
+   - a `senior-tester` check phase
+8. The `software-tester` check phase must stay inside the implement block it verifies and must use exactly one fixed `bounce_target` pointing back to that implement phase.
+9. The `senior-tester` check phase must also stay inside the implement block it verifies, must run after that block’s `software-tester` phase, and must use exactly one fixed `bounce_target` pointing back to the same implement phase.
+10. Do not use `bounce_targets` lists, dynamic verifier routing, or agent-chosen bounce behavior.
+11. If a verifier needs to run tests, builds, lint, Docker commands, package builds, or any other command, those commands must be written directly into that checker’s instructions. Do not model those commands as separate non-agentic phases.
+12. The generated workflow must preserve the explicit reviewer-role topology from this plan. Later generation must not invent reviewer roles or collapse the `software-tester` and `senior-tester` phases into generic checks.
+13. Every implement prompt in the generated workflow must instruct the implementer to commit the phase’s work to git before yielding. The verifier phases must review committed work, not rely on unstaged edits.
+14. Consume or update these existing artifacts in place instead of refetching, rediscovering, or regenerating substitutes:
+   - `/home/yans/code/safelibs/ported/libwebp/original`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/include/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/man/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/*`
+   - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+   - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+   - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+   - `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
+15. Preserve the consume-existing-artifacts contract explicitly for the checked-in upstream source snapshot, ABI baselines, Debian templates, copied public headers, pkg-config/CMake templates, manpages, dependent inventory, harness, CVE list, and current regression tests.
+16. Treat `safe/abi/original/*` as the authoritative ABI and install-surface baseline. All symbol, SONAME, DT_NEEDED, install-tree, and relink checks must compare against those checked-in files rather than informal expectations.
+17. Treat the exact library dependency graph in `safe/abi/original/needed.json` as part of the compatibility contract. Any phase that touches a shared library or claims completeness for a library must verify `DT_NEEDED` against that file.
+18. The package surface must remain explicit. Later prompts must name every required package, header, pkg-config file, CMake file, tool binary, and manpage instead of collapsing them into broad globs.
+19. Docker-backed package and harness verification is the canonical end-to-end proof for shipped tools, installed pkg-config/CMake metadata, and dependent applications. Host-local tool builds may be supplemental, but not the sole proof of compatibility.
+20. Do not treat generated byproducts as required preexisting inputs. `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, the checked-out `.deb` outputs, `safe/debian/tmp/`, `safe/debian/*.substvars`, `safe/debian/files`, `safe/debian/debhelper-build-stamp`, and unpacked Debian staging directories such as `safe/debian/{libsharpyuv-dev,libsharpyuv0,libwebp-dev,libwebp7,libwebpdecoder3,libwebpdemux2,libwebpmux3,webp}/` must remain reproducible outputs.
+21. Preserve and extend the existing harness in `test-original.sh` instead of replacing it with a new runner. Existing compile probes, runtime tests, and `--only` filtering must be consumed and strengthened in place, and any direct installed-metadata consumer checks must be added there rather than spun out into a second harness. The harness must include at least one `pkg-config --cflags --libs libwebp` consumer, one `pkg-config --cflags --libs libsharpyuv` consumer, and one `find_package(WebP CONFIG REQUIRED)` consumer that links the imported `WebP::*` targets.
+22. Any verifier command that regenerates a tracked artifact, such as `capture-baseline` or `unsafe-audit`, must immediately prove that the committed artifact was already current by following it with an explicit `git diff --exit-code` over the tracked path it rewrote.
+23. Treat `dependents.json` as the currently selected 12-application matrix. Later phases may refine that file only to correct or intentionally revise the existing inventory; they must not rediscover a fresh dependent set from scratch.
 
 # Implementation Phases
 
-## 1. ABI, Header, and Install-Surface Baseline
+## 1. ABI, Header, and Install-Surface Baseline Refresh
 
-- Phase Name: ABI, Header, and Install-Surface Baseline
+- Phase Name: ABI, Header, and Install-Surface Baseline Refresh
 - Implement Phase ID: `impl-abi-baseline`
 - Verification Phases:
-  - `check-abi-baseline`
+  - `check-abi-baseline-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-abi-baseline`
-    - purpose: confirm the Rust workspace skeleton exists, only the installed public headers were copied, packaging metadata baselines were imported, and authoritative ABI/install manifests were captured from `original/`.
+    - purpose: verify that the checked-in headers and authoritative ABI/install-surface baseline manifests still match the upstream `original/` snapshot and remain the contract for later phases. Functional pkg-config/CMake consumer behavior is intentionally deferred to phase 7's packaged-harness checks.
     - commands it should run:
       - `cargo check --workspace --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- capture-baseline --original-dir /home/yans/code/safelibs/ported/libwebp/original --out-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
@@ -183,141 +108,155 @@ The generated workflow that later planners derive from this document must obey a
       - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv.h`
       - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv_csp.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv_csp.h`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+  - `check-abi-baseline-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-baseline`
+    - purpose: review the baseline-refresh commit for minimality, ensure only intended upstream-mirroring assets changed, and confirm the baseline commands are sufficient for later phases to rely on.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
 - Preexisting Inputs:
-  - `original/CMakeLists.txt`
-  - `original/src/Makefile.am`
-  - `original/src/demux/Makefile.am`
-  - `original/src/mux/Makefile.am`
-  - `original/sharpyuv/Makefile.am`
-  - `original/src/webp/{decode,demux,encode,mux,mux_types,types}.h`
-  - `original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
-  - `original/src/*.pc.in`
-  - `original/src/demux/libwebpdemux.pc.in`
-  - `original/src/mux/libwebpmux.pc.in`
-  - `original/sharpyuv/libsharpyuv.pc.in`
-  - `original/cmake/WebPConfig.cmake.in`
-  - `original/debian/*`
-  - `original/man/*.1`
-  - `original/examples/`
-  - `original/imageio/`
-  - `original/extras/`
-  - `original/tests/public_api_test.c`
-  - `test-original.sh`
-  - `dependents.json`
-  - `relevant_cves.json`
+  - `/home/yans/code/safelibs/ported/libwebp/original/CMakeLists.txt`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/Makefile.am`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/Makefile.am`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/Makefile.am`
+  - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/Makefile.am`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/{decode,demux,encode,mux,mux_types,types}.h`
+  - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/*.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/libwebpdemux.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/libwebpmux.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/original/cmake/WebPConfig.cmake.in`
+  - `/home/yans/code/safelibs/ported/libwebp/original/debian/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/include/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/man/*`
 - New Outputs:
-  - `safe/Cargo.toml`
-  - `safe/rust-toolchain.toml`
-  - `safe/crates/*/Cargo.toml`
-  - `safe/xtask/`
-  - `safe/include/webp/{decode,demux,encode,mux,mux_types,types}.h`
-  - `safe/include/webp/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
-  - `safe/pkgconfig/{libwebp,libwebpdecoder,libwebpdemux,libwebpmux,libsharpyuv}.pc.in`
-  - `safe/cmake/WebPConfig.cmake.in`
-  - `safe/debian/*`
-  - `safe/man/{cwebp,dwebp,gif2webp,img2webp,vwebp,webpinfo,webpmux}.1`
-  - `safe/abi/original/{libsharpyuv,libwebp,libwebpdecoder,libwebpdemux,libwebpmux}.exports`
-  - `safe/abi/original/sonames.json`
-  - `safe/abi/original/needed.json`
-  - `safe/abi/original/install-surface.json`
-  - `safe/abi/original/relink-manifest.json`
+  - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/{libsharpyuv,libwebp,libwebpdecoder,libwebpdemux,libwebpmux}.exports`
+  - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/sonames.json`
+  - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`
+  - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`
+  - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json`
+  - updated copied headers and install-surface templates only when the upstream `original/` snapshot changed
 - File Changes:
-  - Create `safe/Cargo.toml` as a virtual workspace manifest
-  - Create `safe/rust-toolchain.toml`
-  - Create `safe/xtask/Cargo.toml` and `safe/xtask/src/{main.rs,baseline.rs,verify.rs,link.rs,tools.rs,package.rs}`
-  - Create crate manifests for `safe/crates/webp-abi`, `safe/crates/webp-core`, `safe/crates/libwebp`, `safe/crates/libwebpdecoder`, `safe/crates/libwebpdemux`, `safe/crates/libwebpmux`, and `safe/crates/libsharpyuv`
-  - Copy only the installed public headers listed above into `safe/include/`
-  - Copy upstream `.pc.in`, CMake config template, Debian metadata, and manpages into `safe/`
-  - Add baseline files under `safe/abi/original/`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/include/webp/**/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
 - Implementation Details:
-  - Make `safe/Cargo.toml` a virtual workspace with shared edition, lint, and release-profile settings.
-  - Keep the public installed headers as literal copies of upstream. Do not generate headers from Rust types and do not copy non-installed headers such as `config.h.in` or `format_constants.h` into the install tree.
-  - Implement `xtask capture-baseline` so it:
-    - builds `original/` as shared libraries in a temp directory
-    - records dynamic exports into `*.exports`
-    - records SONAMEs and `DT_NEEDED` edges into `sonames.json` and `needed.json`
-    - compiles `original/tests/public_api_test.c` and the original example objects that are available from the upstream build (`cwebp`, `dwebp`, `img2webp`, `webpinfo`, `webpmux`) and stores their link lines in `relink-manifest.json`
-    - parses `original/debian/control`, `original/debian/*.install`, `original/debian/webp.manpages`, `original/man/Makefile.am`, and `original/CMakeLists.txt` to create `install-surface.json` with explicit package names, headers, pkg-config files, CMake files, binaries, and manpages
-  - Record the explicit `webp` tool list in `install-surface.json` as:
-    - `cwebp`, `dwebp`, `gif2webp`, `img2webp`, `vwebp`, `webpinfo`, `webpmux`, `anim_diff`, `anim_dump`
-  - Record the explicit manpage list in `install-surface.json` as:
-    - `cwebp.1`, `dwebp.1`, `gif2webp.1`, `img2webp.1`, `vwebp.1`, `webpinfo.1`, `webpmux.1`
-  - Implement `xtask verify-needed` so later phases compare built Rust libraries against `safe/abi/original/needed.json` exactly, including the absence of extra dependency edges.
-  - Make later phases consume these checked-in baselines instead of rebuilding them.
+  - The implementer must create a git commit for this phase before yielding to `check-abi-baseline-software-tester`.
+  - Reuse `capture_baseline` in `safe/xtask/src/baseline.rs:13-40`; do not invent a second baseline format.
+  - Keep the copied public headers literal. Do not generate headers from Rust types or from bindgen output.
+  - Preserve the explicit install-surface lists from `safe/xtask/src/package.rs:13-136`, including the exact tool binary names and exact manpage paths.
+  - Keep `safe/abi/original/relink-manifest.json` aligned with the relink fixtures defined in `safe/xtask/src/link.rs:15-34`.
+  - If no upstream-facing ABI or install-surface inputs changed, this phase should verify and leave the checked-in baseline untouched rather than rewriting it gratuitously.
 - Verification:
-  - Commands listed above
+  - The software tester runs the full baseline-capture and header-diff command list and fails if recapturing `safe/abi/original/*` leaves tracked diffs.
+  - The senior tester reviews `HEAD` for minimality and confirms the baseline files are still authoritative, not incidental build byproducts.
+  - This phase is manifest-level only; direct behavioral verification of the shipped pkg-config and CMake metadata belongs to phase 7 after the safe packages are built and installed.
 
-## 2. Public ABI Types, Layout Tests, Common Runtime, and `libsharpyuv`
+## 2. Public ABI Types, Common Runtime, and `libsharpyuv` Stabilization
 
-- Phase Name: Public ABI Types, Layout Tests, Common Runtime, and `libsharpyuv`
+- Phase Name: Public ABI Types, Common Runtime, and `libsharpyuv` Stabilization
 - Implement Phase ID: `impl-abi-runtime-sharpyuv`
 - Verification Phases:
-  - `check-abi-runtime-sharpyuv`
+  - `check-abi-runtime-sharpyuv-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
-    - purpose: verify `repr(C)` layouts, shared runtime hooks, the exported `VP8GetCPUInfo` object symbol, and full `libsharpyuv` parity.
+    - purpose: verify the public `repr(C)` layouts, allocator/runtime globals, worker-interface hooks, `VP8GetCPUInfo`, and `libsharpyuv` symbol surface.
     - commands it should run:
       - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
       - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp libwebpdecoder --subset common_runtime`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- c-smoke --name sharpyuv_runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  - `check-abi-runtime-sharpyuv-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
+    - purpose: review the runtime and ABI commit for layout safety, confirm unsafe did not leak past the approved FFI/runtime boundary files, and validate the most important ABI gates a second time.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
 - Preexisting Inputs:
-  - `safe/abi/original/*`
-  - `safe/include/webp/*`
-  - `safe/include/webp/sharpyuv/*`
-  - `relevant_cves.json`
-  - `original/src/utils/utils.h`
-  - `original/src/utils/thread_utils.h`
-  - `original/src/dsp/cpu.h`
-  - `original/sharpyuv/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/build.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/tests/ffi_layout.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/{mod.rs,csp.rs,dsp.rs,gamma.rs,convert.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{Cargo.toml,build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{Cargo.toml,build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{Cargo.toml,build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/thread_utils.h`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/cpu.h`
+  - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
 - New Outputs:
-  - `safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
-  - `safe/crates/webp-abi/build.rs`
-  - `safe/crates/webp-abi/tests/ffi_layout.rs`
-  - `safe/crates/webp-core/src/{lib.rs,alloc.rs,checked.rs,threading.rs,cpu.rs}`
-  - `safe/crates/webp-core/src/sharpyuv/{mod.rs,csp.rs,dsp.rs,gamma.rs,convert.rs}`
-  - `safe/crates/libsharpyuv/src/lib.rs`
-  - `safe/crates/libsharpyuv/build.rs`
-  - `safe/crates/libwebp/src/lib.rs`
-  - `safe/crates/libwebp/build.rs`
-  - `safe/crates/libwebpdecoder/src/lib.rs`
-  - `safe/crates/libwebpdecoder/build.rs`
+  - updated public ABI type definitions and layout tests in `safe/crates/webp-abi/*`
+  - updated allocator/runtime/common scaffolding in `safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs}`
+  - updated SharpYuv implementation and FFI adapters in `safe/crates/webp-core/src/sharpyuv/*`
+  - updated export shims and linker glue in `safe/crates/libsharpyuv`, `safe/crates/libwebp`, and `safe/crates/libwebpdecoder`
+  - updated `safe/docs/unsafe-audit.md` if the explicit unsafe inventory changes
 - File Changes:
-  - Create the `webp-abi` type modules and layout-test scaffolding
-  - Create `webp-core` runtime modules for allocation, overflow checks, threading hooks, and CPU dispatch
-  - Create the `libsharpyuv` export crate and build script
-  - Add build scripts for `libwebp` and `libwebpdecoder` that already apply SONAME and version-script baselines even before those libraries are complete
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
 - Implementation Details:
-  - Define all public structs and enums from the installed headers with field-exact `#[repr(C)]` layout, including padding fields where the C ABI relies on them.
-  - Put the ABI layout test at `safe/crates/webp-abi/tests/ffi_layout.rs` so the checker command `cargo test -p webp-abi --test ffi_layout` is valid.
-  - Use a `build.rs` in `webp-abi` to compile small C snippets against the copied headers and compare `sizeof`, `alignof`, and `offsetof` with Rust definitions.
-  - Centralize arithmetic hardening in `checked.rs`, reproducing `WEBP_MAX_ALLOCABLE_MEMORY` and `CheckSizeOverflow` semantics from `original/src/utils/utils.h`.
-  - Export the shared runtime functions and object symbols needed by both `libwebp` and `libwebpdecoder`:
-    - `WebPMalloc`
-    - `WebPFree`
-    - `WebPSafeMalloc`
-    - `WebPSafeCalloc`
-    - `WebPSafeFree`
-    - `WebPSetWorkerInterface`
-    - `WebPGetWorkerInterface`
-    - `VP8GetCPUInfo` as a mutable exported global object symbol
-  - Implement `SharpYuvGetVersion`, `SharpYuvComputeConversionMatrix`, `SharpYuvGetConversionMatrix`, `SharpYuvConvert`, and `SharpYuvInit` in safe Rust where possible, limiting `unsafe` to FFI boundaries and CPU intrinsics.
-  - Make every export crate `build.rs` consume the phase-1 `*.exports` baseline to drive linker version scripts and set exact SONAMEs.
+  - The implementer must create a git commit for this phase before yielding to `check-abi-runtime-sharpyuv-software-tester`.
+  - Preserve the field-exact `repr(C)` contract generated by `safe/crates/webp-abi/build.rs` rather than replacing it with a different ABI-test mechanism.
+  - Keep checked arithmetic centralized in `safe/crates/webp-core/src/checked.rs`; do not duplicate overflow logic inside individual export shims.
+  - Preserve `default_cpu_info` in `safe/crates/webp-core/src/cpu.rs:20`, the worker-interface state in `safe/crates/webp-core/src/threading.rs:127-149`, and the exported mutable `VP8GetCPUInfo` object expected by `safe/tests/c/runtime_abi_test.c:19-20`.
+  - Keep the linker-version-script pattern driven by `safe/abi/original/*` in every `build.rs`; do not hard-code SONAMEs or export lists in multiple places.
+  - Any unsafe reduction in this phase must stay confined to explicit ABI boundaries and runtime-global scaffolding files already tracked by `safe/docs/unsafe-audit.md`.
 - Verification:
-  - Commands listed above
+  - The software tester executes all ABI/runtime/sharpyuv gates, including SONAME and `DT_NEEDED` checks for the three touched shared libraries, and confirms the committed unsafe audit file is already current.
+  - The senior tester reviews the commit diff and ensures no new unsafe escapes the existing audit categories or untracked files while the touched shared libraries still match their linker metadata baseline.
 
 ## 3. Decoder Core and `libwebpdecoder` Parity
 
 - Phase Name: Decoder Core and `libwebpdecoder` Parity
 - Implement Phase ID: `impl-decode-core`
 - Verification Phases:
-  - `check-decode-core`
+  - `check-decode-core-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-decode-core`
-    - purpose: prove the Rust decoder path matches upstream symbols and behavior for info queries, decode entry points, external-memory decode, and incremental decode.
+    - purpose: verify the decode entry points, incremental decode state machine, exported helper symbols, and malformed-input hardening for the decode path.
     - commands it should run:
       - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
@@ -326,61 +265,69 @@ The generated workflow that later planners derive from this document must obey a
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
       - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
-  - `check-decode-security`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
+  - `check-decode-core-senior-tester`
+    - reviewer role: `senior-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-decode-core`
-    - purpose: validate denial-of-service and malformed-input hardening for the lossless Huffman path.
+    - purpose: review the decode commit for semantic parity and regression-test quality, with particular attention to reproducer-first fixes for malformed or resource-exhausting input.
     - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
       - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
       - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
 - Preexisting Inputs:
-  - `original/src/dec/*`
-  - decode-side `original/src/dsp/*`
-  - decode-side `original/src/utils/*`
-  - `safe/abi/original/*`
-  - `safe/crates/webp-abi/*`
-  - `safe/crates/webp-core/src/{alloc.rs,checked.rs,threading.rs,cpu.rs}`
-  - `original/examples/{test.webp,test_ref.ppm}`
-  - `relevant_cves.json`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/dec/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/examples/{test.webp,test_ref.ppm}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
 - New Outputs:
-  - `safe/crates/webp-core/src/decode/{mod.rs,alpha_dec.rs,buffer_dec.rs,frame_dec.rs,idec_dec.rs,io_dec.rs,quant_dec.rs,tree_dec.rs,vp8_dec.rs,vp8l_dec.rs,webp_dec.rs}`
-  - `safe/crates/webp-core/src/dsp/{mod.rs,alpha_processing.rs,dec.rs,filters.rs,lossless.rs,rescaler.rs,upsampling.rs,yuv.rs}`
-  - `safe/crates/webp-core/src/utils/{mod.rs,bit_reader.rs,color_cache.rs,filters.rs,huffman.rs,quant_levels_dec.rs,rescaler.rs,utils.rs}`
-  - decoder exports added to `safe/crates/libwebpdecoder/src/lib.rs`
-  - decode-side exports added to `safe/crates/libwebp/src/lib.rs`
-  - `safe/tests/c/decode_api_test.c`
+  - updated decode, DSP, and utility modules in `safe/crates/webp-core/src/{decode,dsp,utils}`
+  - updated decode exports in `safe/crates/libwebpdecoder/src/lib.rs` and `safe/crates/libwebp/src/lib.rs`
+  - updated decode regression tests in `safe/tests/c/decode_api_test.c`
+  - updated malformed-input regression tests in `safe/crates/webp-core/tests/*`
 - File Changes:
-  - Add decoder modules mirroring the upstream decoder C files
-  - Expand `libwebpdecoder` and `libwebp` export crates to expose the decode-side ABI
-  - Add a dedicated C test suite for decode APIs under `safe/tests/c/`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
 - Implementation Details:
-  - Port `WebPGetInfo`, `WebPGetFeaturesInternal`, `WebPInitDecBufferInternal`, `WebPInitDecoderConfigInternal`, and the `WebPDecode*` family.
-  - Port incremental decode APIs:
-    - `WebPINewDecoder`
-    - `WebPINewRGB`
-    - `WebPINewYUV`
-    - `WebPINewYUVA`
-    - `WebPIAppend`
-    - `WebPIUpdate`
-    - `WebPIDecGetRGB`
-    - `WebPIDecGetYUVA`
-    - `WebPIDecodedArea`
-    - `WebPIDelete`
-  - Preserve decode status-code behavior for null pointers, truncated inputs, bad parameters, and invalid bitstreams.
-  - Mirror upstream buffer-ownership semantics with safe owned storage internally and raw pointers only at the FFI boundary.
-  - Rework the `ReadHuffmanCodes` and `VP8LHuffmanTablesAllocate` logic so group counts and table sizes are derived with checked arithmetic and geometry-based caps rather than trusting malformed metadata.
+  - The implementer must create a git commit for this phase before yielding to `check-decode-core-software-tester`.
+  - Preserve the public decode entry points in `safe/crates/webp-core/src/decode/webp_dec.rs`, especially `WebPDecode*Into`, `WebPDecode*`, `WebPGetInfo`, and `WebPDecode`.
+  - Preserve incremental decode semantics in `safe/crates/webp-core/src/decode/idec_dec.rs`, including null-pointer handling, partial-buffer progression, append/update transitions, and external-memory behavior.
+  - Preserve the non-header helper exports `VP8GetInfo` and `VP8LGetInfo`, because the C regression test references them directly.
+  - Route malformed-input size calculations and Huffman table sizing through checked arithmetic. Rust memory safety is not enough for the resource-exhaustion bugs captured by `relevant_cves.json`.
+  - If dependent-app or harness failures expose a decode regression, add the smallest reproducer to `safe/tests/c/` or `safe/crates/webp-core/tests/` before changing the implementation.
 - Verification:
-  - Commands listed above
+  - The software tester runs the decode ABI checks plus the decode-specific CVE regressions.
+  - The senior tester confirms the phase added or strengthened the reproducer before modifying decode behavior and that the diff does not weaken incremental-decode semantics.
 
 ## 4. Demux and Animation Decode
 
 - Phase Name: Demux and Animation Decode
 - Implement Phase ID: `impl-demux-animdecode`
 - Verification Phases:
-  - `check-demux-animdecode`
+  - `check-demux-animdecode-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-demux-animdecode`
-    - purpose: validate `libwebpdemux` symbols and animated decode behavior against upstream semantics.
+    - purpose: verify `libwebpdemux` symbols, demux iterators, animation-decode semantics, and oracle-library parity for demux and animdecode APIs.
     - commands it should run:
       - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
@@ -388,38 +335,59 @@ The generated workflow that later planners derive from this document must obey a
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
       - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  - `check-demux-animdecode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-demux-animdecode`
+    - purpose: review demux and animation-decode changes for iterator ownership, partial-parse behavior, and oracle-comparison coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
 - Preexisting Inputs:
-  - `original/src/demux/*`
-  - `original/src/webp/demux.h`
-  - `original/examples/test.webp`
-  - decoder outputs from phase 3
-  - `safe/abi/original/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/{mod.rs,demux.rs,anim_decode.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{Cargo.toml,build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
 - New Outputs:
-  - `safe/crates/webp-core/src/demux/{mod.rs,demux.rs,anim_decode.rs}`
-  - `safe/crates/libwebpdemux/src/lib.rs`
-  - `safe/crates/libwebpdemux/build.rs`
-  - `safe/tests/c/demux_animdecode_test.c`
+  - updated demux and animation-decode implementation in `safe/crates/webp-core/src/demux/*`
+  - updated export shims and linker glue in `safe/crates/libwebpdemux/*`
+  - updated demux regression tests in `safe/tests/c/demux_animdecode_test.c`
+  - updated `safe/docs/unsafe-audit.md` if demux-side explicit unsafe changes
 - File Changes:
-  - Add demux and animation-decode modules
-  - Create the `libwebpdemux` export crate
-  - Add C tests for chunk iteration, frame iteration, and animation decode
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
 - Implementation Details:
-  - Port `WebPDemuxInternal`, `WebPDemuxGetI`, `WebPDemuxGetFrame`, `WebPDemuxGetChunk`, iterator stepping, and iterator-release APIs.
-  - Port `WebPAnimDecoderOptionsInitInternal`, `WebPAnimDecoderNewInternal`, `WebPAnimDecoderGetInfo`, `WebPAnimDecoderGetNext`, `WebPAnimDecoderHasMoreFrames`, `WebPAnimDecoderReset`, `WebPAnimDecoderGetDemuxer`, and `WebPAnimDecoderDelete`.
-  - Preserve canvas disposal, blending, timestamp, and background-color semantics from `original/src/demux/anim_decode.c`.
-  - Reuse the phase-3 decoder core for fragment decode rather than forking separate image paths.
+  - The implementer must create a git commit for this phase before yielding to `check-demux-animdecode-software-tester`.
+  - Preserve `WebPDemuxInternal`, `WebPDemuxGetI`, `WebPDemuxGetFrame`, and `WebPDemuxGetChunk` semantics in `safe/crates/webp-core/src/demux/demux.rs`.
+  - Preserve `WebPAnimDecoderOptionsInitInternal`, `WebPAnimDecoderNewInternal`, `WebPAnimDecoderGetInfo`, `WebPAnimDecoderGetNext`, and reset/delete behavior in `safe/crates/webp-core/src/demux/anim_decode.rs`.
+  - Keep the oracle-comparison strategy in `safe/tests/c/demux_animdecode_test.c`: frame iterators, chunk iterators, partial parsing, canvas properties, timestamps, blend/dispose behavior, and decoded output must stay aligned with the system library.
+  - Do not fork a separate decode implementation for demux fragments; demux and animdecode must continue to flow through the shared decode core.
 - Verification:
-  - Commands listed above
+  - The software tester reruns the full demux/animdecode C oracle suite and confirms the committed unsafe audit file is already current.
+  - The senior tester confirms the changed tests still compare against the oracle library rather than merely asserting internal Rust behavior.
 
 ## 5. Encoder Core and Still-Image `libwebp` Write Path
 
 - Phase Name: Encoder Core and Still-Image `libwebp` Write Path
 - Implement Phase ID: `impl-encode-core`
 - Verification Phases:
-  - `check-encode-core`
+  - `check-encode-core-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-encode-core`
-    - purpose: validate config initialization, picture ownership utilities, memory-writer behavior, and still-image encode/decode roundtrips.
+    - purpose: verify config initialization, picture ownership helpers, memory-writer behavior, still-image encode entry points, and encode-side arithmetic hardening.
     - commands it should run:
       - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset encode`
@@ -427,68 +395,63 @@ The generated workflow that later planners derive from this document must obey a
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`
       - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-tools --tools cwebp dwebp --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- tool-smoke --prefix /home/yans/code/safelibs/ported/libwebp/safe/dist --tools cwebp dwebp`
-  - `check-encode-security`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`
+  - `check-encode-core-senior-tester`
+    - reviewer role: `senior-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-encode-core`
-    - purpose: validate arithmetic-hardening regressions required by `CVE-2016-9085`.
+    - purpose: review encode changes for source-compatibility of the public helpers and for reproducer-first arithmetic-hardening fixes.
     - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`
       - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`
       - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`
 - Preexisting Inputs:
-  - `original/src/enc/*`
-  - encode-side `original/src/utils/*`
-  - encode-side `original/src/dsp/*`
-  - `original/sharpyuv/*`
-  - `original/examples/{cwebp.c,dwebp.c,example_util.c,stopwatch.h}`
-  - `original/imageio/*`
-  - `safe/abi/original/*`
-  - previous phase outputs
-  - `relevant_cves.json`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/enc/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
 - New Outputs:
-  - `safe/crates/webp-core/src/encode/{mod.rs,alpha_enc.rs,analysis_enc.rs,backward_references_cost_enc.rs,backward_references_enc.rs,config_enc.rs,cost_enc.rs,filter_enc.rs,frame_enc.rs,histogram_enc.rs,iterator_enc.rs,near_lossless_enc.rs,picture_csp_enc.rs,picture_enc.rs,picture_rescale_enc.rs,picture_tools_enc.rs,predictor_enc.rs,quant_enc.rs,syntax_enc.rs,token_enc.rs,tree_enc.rs,vp8l_enc.rs,webp_enc.rs}`
-  - encode-side updates to `safe/crates/libwebp/src/lib.rs`
-  - `safe/tests/c/encode_api_test.c`
+  - updated encode implementation in `safe/crates/webp-core/src/encode/*`
+  - updated export/build glue in `safe/crates/libwebp/{build.rs,src/lib.rs}`
+  - updated encode regression tests in `safe/tests/c/encode_api_test.c`
+  - updated encode security tests in `safe/crates/webp-core/tests/encode_security.rs`
 - File Changes:
-  - Add encoder modules mirroring the upstream encoder families
-  - Extend `libwebp` exports to cover the still-image write path
-  - Add encode-side C compatibility tests
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`
 - Implementation Details:
-  - Port:
-    - `WebPConfigInitInternal`
-    - `WebPConfigLosslessPreset`
-    - `WebPValidateConfig`
-    - `WebPPictureInitInternal`
-    - `WebPPictureAlloc`
-    - `WebPPictureCopy`
-    - `WebPPictureCrop`
-    - `WebPPictureView`
-    - `WebPPictureRescale`
-    - `WebPPictureImport*`
-    - `WebPPictureARGBToYUVA`
-    - `WebPPictureYUVAToARGB`
-    - `WebPMemoryWriterInit`
-    - `WebPMemoryWriterClear`
-    - `WebPMemoryWrite`
-    - `WebPEncode`
-    - the `WebPEncode{RGB,RGBA,BGR,BGRA,Lossless*}` helpers
-  - Preserve exact default config values and validation bounds from `original/src/enc/config_enc.c`.
-  - Model `WebPPicture` ownership and “view” state explicitly so `WebPPictureIsView` and `WebPPictureFree` remain bug-compatible from the caller’s perspective.
-  - Route all size computations through the checked-arithmetic helper to satisfy `CVE-2016-9085`.
-  - Build upstream `cwebp` and `dwebp` from `original/examples/` and `original/imageio/` against the Rust-installed headers and libraries rather than reimplementing those tools.
+  - The implementer must create a git commit for this phase before yielding to `check-encode-core-software-tester`.
+  - Preserve the public config and picture helpers exercised by `safe/tests/c/encode_api_test.c`, especially `WebPConfigInit`, `WebPConfigLosslessPreset`, `WebPValidateConfig`, `WebPPictureCopy`, `WebPPictureView`, `WebPPictureCrop`, `WebPPictureRescale`, `WebPBlendAlpha`, `WebPMemoryWrite`, and the lossless convenience encoders.
+  - Keep `WebPPictureAlloc`, `WebPPictureAllocARGB`, and `WebPPictureAllocYUVA` aligned with the checked-arithmetic hardening required by `CVE-2016-9085` and `oversized_picture_alloc`.
+  - Preserve `WebPEncode` and its helper entry points in `safe/crates/webp-core/src/encode/webp_enc.rs` and `safe/crates/libwebp/src/lib.rs`.
+  - Only modify `safe/crates/libwebp/build.rs` through the existing baseline-driven linker contract and the existing nested `libsharpyuv` dependency flow.
+  - Do not make host-local upstream tool builds the required proof for encode correctness; the canonical tool/runtime proof remains phase 7’s package + Docker harness.
 - Verification:
-  - Commands listed above
+  - The software tester executes the encode C suite plus the encode-side CVE regressions.
+  - The senior tester checks that every behavioral change is backed by a focused encode regression and that the public helper surface remains source-compatible.
 
 ## 6. Mux and Animation Encode
 
 - Phase Name: Mux and Animation Encode
 - Implement Phase ID: `impl-mux-animencode`
 - Verification Phases:
-  - `check-mux-animencode`
+  - `check-mux-animencode-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-mux-animencode`
-    - purpose: validate mux APIs, animation encode APIs, and the unchanged upstream public API regression test.
+    - purpose: verify mux APIs, animation-encode behavior, the unchanged upstream public API test, and early relink compatibility for the mux-facing fixtures.
     - commands it should run:
       - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
@@ -496,306 +459,322 @@ The generated workflow that later planners derive from this document must obey a
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
       - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-tools --tools img2webp webpmux webpinfo --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- tool-smoke --prefix /home/yans/code/safelibs/ported/libwebp/safe/dist --tools img2webp webpmux webpinfo`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
+  - `check-mux-animencode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-mux-animencode`
+    - purpose: review mux/animencode changes for `WebPData` ownership, frame/chunk assembly semantics, and adequacy of upstream-public-API coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
 - Preexisting Inputs:
-  - `original/src/mux/*`
-  - `original/tests/public_api_test.c`
-  - `original/examples/{img2webp.c,webpmux.c,webpinfo.c,anim_util.c,example_util.c}`
-  - `original/imageio/*`
-  - previous phase outputs
-  - `safe/abi/original/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/{mod.rs,anim_encode.rs,muxedit.rs,muxinternal.rs,muxread.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{Cargo.toml,build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
 - New Outputs:
-  - `safe/crates/webp-core/src/mux/{mod.rs,anim_encode.rs,muxedit.rs,muxinternal.rs,muxread.rs}`
-  - `safe/crates/libwebpmux/src/lib.rs`
-  - `safe/crates/libwebpmux/build.rs`
-  - build glue for the unchanged upstream `public_api_test.c`
+  - updated mux and animation-encode implementation in `safe/crates/webp-core/src/mux/*`
+  - updated `libwebpmux` export/build glue
+  - updated upstream-public-API build glue in `safe/xtask` or `safe/tests/c` only if needed to keep the original C test compiling unchanged
 - File Changes:
-  - Add mux and animation-encode modules
-  - Create the `libwebpmux` export crate
-  - Wire the unchanged upstream public API test into the safe test build
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{build.rs,src/lib.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{verify.rs,package.rs}` if upstream public-API wiring needs adjustment
+  - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/CMakeLists.txt` if the upstream public-API glue changes
 - Implementation Details:
-  - Port:
-    - `WebPGetMuxVersion`
-    - `WebPNewInternal`
-    - `WebPMuxCreateInternal`
-    - `WebPMuxSetImage`
-    - `WebPMuxSetChunk`
-    - `WebPMuxGetChunk`
-    - `WebPMuxGetFrame`
-    - `WebPMuxGetFeatures`
-    - `WebPMuxGetCanvasSize`
-    - `WebPMuxNumChunks`
-    - `WebPMuxAssemble`
-    - `WebPAnimEncoderOptionsInitInternal`
-    - `WebPAnimEncoderNewInternal`
-    - `WebPAnimEncoderAdd`
-    - `WebPAnimEncoderAssemble`
-    - `WebPAnimEncoderGetError`
-    - `WebPAnimEncoderDelete`
-  - Preserve `WebPData` ownership semantics, especially `WebPDataClear()` and `copy_data` behavior in mux APIs.
-  - Keep animation timestamp, loop-count, key-frame, and background-color semantics aligned with the upstream implementation so `original/tests/public_api_test.c` passes unchanged.
+  - The implementer must create a git commit for this phase before yielding to `check-mux-animencode-software-tester`.
+  - Preserve `WebPGetMuxVersion`, `WebPMuxSet*`, `WebPMuxPushFrame`, `WebPMuxAssemble`, the read/query helpers, and the animation encoder state machine exercised by `public_api_test.c`.
+  - Keep `WebPData` initialization, copy, clear, and ownership-transfer semantics stable across `muxinternal.rs`, `muxedit.rs`, `muxread.rs`, and `anim_encode.rs`.
+  - Preserve frame timestamp, loop count, key-frame, dispose/blend, and background handling tightly enough that the unchanged upstream `public_api_test.c` continues to pass.
+  - If a mux bug is discovered by later packaging or harness work, add the smallest targeted reproducer here before folding the fix into phase 8.
 - Verification:
-  - Commands listed above
+  - The software tester runs the upstream public API test and a mux-specific relink subset.
+  - The senior tester confirms the diff keeps the public API test itself unchanged unless compile glue truly required an adjustment.
 
-## 7. Debian Packaging, Tool Surface, and Harness Migration
+## 7. Debian Packaging, Tool Surface, and Dependent-App Harness
 
-- Phase Name: Debian Packaging, Tool Surface, and Harness Migration
+- Phase Name: Debian Packaging, Tool Surface, and Dependent-App Harness
 - Implement Phase ID: `impl-packaging-harness`
 - Verification Phases:
-  - `check-package-surface`
+  - `check-packaging-harness-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-packaging-harness`
-    - purpose: verify the Rust workspace builds installable Ubuntu 24.04 packages whose contents match the explicit install-surface baseline and whose shared-library dependency edges still match `needed.json`.
+    - purpose: verify the Ubuntu 24.04 package surface, explicit tool/manpage install contract, direct installed pkg-config/CMake consumer behavior, compile-probe coverage for SDK-style dependents, and the full Docker-backed dependent/application matrix.
     - commands it should run:
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
       - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/bin/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux|anim_diff|anim_dump)$'`
       - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/share/man/man1/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux)\\.1(\\.gz)?$'`
-      - `dpkg-deb -c /tmp/libwebp-safe-debs/libwebp-dev_*.deb | rg 'usr/include/webp/(decode|demux|encode|mux|mux_types|types)\\.h$'`
-      - `dpkg-deb -c /tmp/libwebp-safe-debs/libsharpyuv-dev_*.deb | rg 'usr/include/webp/sharpyuv/(sharpyuv|sharpyuv_csp)\\.h$'`
-  - `check-safe-tool-harness`
-    - type: `check`
-    - fixed `bounce_target`: `impl-packaging-harness`
-    - purpose: verify the modified Docker harness installs the generated packages and explicitly exercises every shipped tool.
-    - commands it should run:
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
       - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
-      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tool:gif2webp`
-      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tool:vwebp`
-  - `check-dependent-harness`
-    - type: `check`
-    - fixed `bounce_target`: `impl-packaging-harness`
-    - purpose: verify the modified root harness installs the Rust packages and still passes the full dependent matrix.
-    - commands it should run:
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
-      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
       - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pillow`
       - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+  - `check-packaging-harness-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-packaging-harness`
+    - purpose: review the packaging/harness commit for fidelity to the existing Docker harness, ensure compile-probe and direct metadata-consumer coverage were strengthened in place rather than replaced, and rerun representative package/runtime gates.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`
 - Preexisting Inputs:
-  - `safe/abi/original/install-surface.json`
-  - `safe/abi/original/needed.json`
-  - `safe/debian/*`
-  - `safe/man/*.1`
-  - `test-original.sh`
-  - `dependents.json`
-  - `original/examples/*`
-  - `original/imageio/*`
-  - `original/extras/*`
-  - `original/man/*.1`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`
+  - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+  - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+  - `/home/yans/code/safelibs/ported/libwebp/original/examples/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/imageio/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/extras/*`
+  - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
 - New Outputs:
-  - finalized Debian packaging in `safe/debian/`
-  - install/package logic in `xtask`
-  - modified `test-original.sh` with `--variant` and tool-smoke support
-  - package-ready install tree under `safe/dist/`
+  - updated Debian source metadata in `safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - updated package/install verification logic in `safe/xtask/src/package.rs` and `safe/xtask/src/verify.rs`
+  - updated root Docker harness in `test-original.sh`
+  - updated dependent inventory in `dependents.json` only if the chosen 12-app set intentionally changes
+  - regenerated `.deb` packages in checker-selected output directories
 - File Changes:
-  - Update `safe/debian/{control,rules,clean,changelog,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,libsharpyuv-dev.install,libsharpyuv0.install,webp.install,webp.manpages,libwebp-dev.docs}`
-  - Update `safe/pkgconfig/*.pc.in`
-  - Update `safe/cmake/WebPConfig.cmake.in`
-  - Update `safe/xtask/src/{main.rs,tools.rs,package.rs,verify.rs}`
-  - Modify `test-original.sh`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`
+  - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+  - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
 - Implementation Details:
-  - Preserve the upstream package names and package split exactly.
-  - Replace the wildcard semantics in `safe/debian/webp.install` with an explicit binary list:
-    - `usr/bin/cwebp`
-    - `usr/bin/dwebp`
-    - `usr/bin/gif2webp`
-    - `usr/bin/img2webp`
-    - `usr/bin/vwebp`
-    - `usr/bin/webpinfo`
-    - `usr/bin/webpmux`
-    - `usr/bin/anim_diff`
-    - `usr/bin/anim_dump`
-  - Replace the wildcard semantics in `safe/debian/webp.manpages` with an explicit manpage list:
-    - `usr/share/man/man1/cwebp.1`
-    - `usr/share/man/man1/dwebp.1`
-    - `usr/share/man/man1/gif2webp.1`
-    - `usr/share/man/man1/img2webp.1`
-    - `usr/share/man/man1/vwebp.1`
-    - `usr/share/man/man1/webpinfo.1`
-    - `usr/share/man/man1/webpmux.1`
-  - Reuse the upstream example, imageio, extras, and manpage sources rather than rewriting the tools in Rust.
-  - Implement `xtask package-deb` as a wrapper over the `safe/debian/` package build, not as an unrelated packaging path.
-  - Modify `test-original.sh` in place so it:
-    - accepts `--variant original|safe`
-    - in `safe` mode installs the `.deb` files from `LIBWEBP_SAFE_DEB_DIR`
-    - still supports `--only <dependent-slug>`
-    - adds `--only tools` and `--only tool:<name>` modes for explicit tool verification
-    - adds `libglut-dev` to the Docker image so `vwebp` can be built or run in the container
-    - runs a `run_tool_smokes` step before dependent checks
-  - `run_tool_smokes` must explicitly exercise:
-    - `cwebp` by encoding `original/examples/test_ref.ppm`
-    - `dwebp` by decoding `original/examples/test.webp`
-    - `gif2webp` by converting a small animated GIF generated with Pillow from existing fixtures
-    - `img2webp` by assembling `frame1.ppm` and `frame2.ppm`
-    - `webpinfo` by inspecting still and animated fixtures
-    - `webpmux` by setting and reading EXIF metadata on `input.webp`
-    - `anim_dump` by dumping frames from `animated.webp`
-    - `anim_diff` by comparing two known-equivalent animations
-    - `vwebp` by running `-version` or `-info` under `xvfb-run`
+  - The implementer must create a git commit for this phase before yielding to `check-packaging-harness-software-tester`.
+  - Preserve the explicit package/header/pkg-config/CMake/tool/manpage expectations in `safe/xtask/src/package.rs:13-136`.
+  - Keep `verify_safe_debian_metadata`, `stage_dist`, `package_deb`, and `build_debian_packages_in_docker` in `safe/xtask/src/package.rs` as the authoritative package-building path. Do not introduce a second packaging pipeline.
+  - Edit only the Debian source metadata under `safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`. Treat `safe/debian/tmp/`, `safe/debian/{libsharpyuv-dev,libsharpyuv0,libwebp-dev,libwebp7,libwebpdecoder3,libwebpdemux2,libwebpmux3,webp}/`, `safe/debian/*.substvars`, `safe/debian/files`, and `safe/debian/debhelper-build-stamp` as reproducible byproducts, not workflow inputs.
+  - Preserve `test-original.sh`’s existing topology: inventory validation at `319-353`, fixture preparation before dependent checks, tool smokes before dependent checks, and per-dependent `--only` filtering.
+  - Treat `dependents.json` as the fixed current 12-application inventory. Do not rediscover a different dependent set unless the file itself is intentionally corrected in this phase.
+  - Add three explicit installed-metadata harness checks to `test-original.sh`, outside `dependents.json` but inside the same Docker flow and `--only` interface: `pkg-config-libwebp`, `pkg-config-libsharpyuv`, and `cmake-webp`.
+  - `pkg-config-libwebp` must compile and run a minimal C consumer with `pkg-config --cflags --libs libwebp` against the installed safe packages, exercising the installed headers plus at least one decode or encode entry point from `libwebp`.
+  - `pkg-config-libsharpyuv` must compile and run a minimal C consumer with `pkg-config --cflags --libs libsharpyuv`, exercising an installed public SharpYuv symbol such as `SharpYuvGetVersion`.
+  - `cmake-webp` must configure, build, and run an out-of-tree CMake consumer that uses `find_package(WebP CONFIG REQUIRED)` and imported targets `WebP::sharpyuv`, `WebP::webp`, `WebP::webpdemux`, and `WebP::webpmux`.
+  - Execute those three metadata probes after package installation and fixture preparation, and before the dependent-application `run_check` sequence, so `test-original.sh --variant safe` covers them on every full harness pass.
+  - Make compile compatibility explicit by preserving and, if needed, extending the existing inline compile probes already present for WebKitGTK, Qt 6, SDL2_image, libvips, and SAIL. If a missing SDK-style dependent needs compile coverage, add that probe inside `test-original.sh` rather than building an unrelated external harness.
+  - Treat compile compatibility as the combination of:
+    - `verify-install-tree` proving the shipped `libwebp-dev` and `libsharpyuv-dev` headers, pkg-config files, linker symlinks, and CMake files are intact
+    - the direct installed-metadata probes `pkg-config-libwebp`, `pkg-config-libsharpyuv`, and `cmake-webp`
+    - the dependent compile probes in `test-original.sh`
+    - the C regression suites and upstream `public_api_test.c`
+  - Keep runtime-only functional tests for application-style dependents in the same harness. If a runtime-only dependent exposes a compatibility bug, add the narrowest reproducible harness step or C regression before fixing the library.
+  - If the inline Docker image needs additional dev/runtime packages, update the package list in `test-original.sh` and any corresponding Debian metadata together so the container remains self-contained.
 - Verification:
-  - Commands listed above
+  - The software tester runs the package build, install-tree validation, direct pkg-config/CMake consumer probes, tool-smoke matrix, targeted compile-probe dependents, targeted runtime dependents, and the full 12-dependent harness.
+  - The senior tester confirms the harness stayed linear and in-place, and reruns representative package/tool/pkg-config/CMake/compile/runtime checks against the generated packages.
 
 ## 8. Final Safety Reduction and Full Compatibility Sweep
 
 - Phase Name: Final Safety Reduction and Full Compatibility Sweep
 - Implement Phase ID: `impl-final-hardening`
 - Verification Phases:
-  - `check-final-compat`
+  - `check-final-hardening-software-tester`
+    - reviewer role: `software-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-final-hardening`
-    - purpose: validate the final symbol surface, SONAMEs, `DT_NEEDED` edges, original-object relink compatibility, and the unchanged upstream public API test.
+    - purpose: rerun the full ABI, source, link, runtime, package, direct installed-metadata consumer, harness, unsafe-audit, and upstream-fuzzer-build surface against the final source state.
     - commands it should run:
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
       - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
-  - `check-final-runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
+  - `check-final-hardening-senior-tester`
+    - reviewer role: `senior-tester`
     - type: `check`
     - fixed `bounce_target`: `impl-final-hardening`
-    - purpose: rerun the full packaged tool and dependent matrix against the final Rust packages.
+    - purpose: perform the final senior review over the hardening commit, confirm the remaining explicit unsafe is justified and documented, and rerun representative end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off.
     - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
       - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
       - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
-  - `check-final-security`
-    - type: `check`
-    - fixed `bounce_target`: `impl-final-hardening`
-    - purpose: validate the remaining `unsafe` surface is minimal and deliberate and that upstream fuzz targets still build against the Rust static libraries.
-    - commands it should run:
-      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
       - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
-      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
-      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`
-      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `rg -n 'CVE-2016-9085|CVE-2020-36332|oversized_picture_alloc|malformed_huffman_tables' /home/yans/code/safelibs/ported/libwebp/relevant_cves.json /home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests`
 - Preexisting Inputs:
-  - all prior phase outputs
-  - `relevant_cves.json`
-  - `original/tests/fuzzer/*`
-  - `safe/abi/original/*`
+  - all committed source outputs from phases 1 through 7, excluding transient build, package, Docker, dist, and staging byproducts
+  - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  - `/home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer/*`
+  - `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
 - New Outputs:
-  - final `safe/docs/unsafe-audit.md`
-  - any remaining compatibility or safety fixes across the workspace
-  - final static-library and fuzzer build glue
+  - updated `safe/docs/unsafe-audit.md`
+  - any final compatibility fixes across `webp-core`, the export crates, package glue, harnesses, or tests
+  - any final regression tests needed to lock down issues surfaced by earlier reviewers
 - File Changes:
-  - Update export crates and `webp-core` modules to eliminate avoidable internal `unsafe`
-  - Add `safe/docs/unsafe-audit.md`
-  - Add any final regression tests under `safe/tests/`
+  - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  - any of `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/**/*`
+  - any of `/home/yans/code/safelibs/ported/libwebp/safe/crates/lib{sharpyuv,webp,webpdecoder,webpdemux,webpmux}/**/*`
+  - any of `/home/yans/code/safelibs/ported/libwebp/safe/tests/**/*`
+  - any of `/home/yans/code/safelibs/ported/libwebp/safe/xtask/**/*`
+  - `/home/yans/code/safelibs/ported/libwebp/test-original.sh` or `/home/yans/code/safelibs/ported/libwebp/dependents.json` only if final runtime regressions require in-place harness adjustments
 - Implementation Details:
-  - Restrict remaining `unsafe` to:
-    - FFI entry points
-    - exported global-object symbols
-    - unavoidable pointer conversions at the C ABI boundary
-    - architecture intrinsics and linker/section attributes
-  - Replace any remaining internal raw-pointer traversal with slices, iterators, and typed state where behavior permits.
-  - Ensure worker-interface mutation and `VP8GetCPUInfo` remain ABI-correct and synchronized after the refactor.
-  - Preserve the checked-arithmetic and Huffman-cap tests introduced for the relevant CVEs.
+  - The implementer must create a git commit for this phase before yielding to `check-final-hardening-software-tester`.
+  - Use this as the catch-all phase for defects found by earlier software testers and senior testers, but always add or extend the reproducer before changing behavior.
+  - Restrict remaining explicit unsafe to unavoidable ABI boundaries, exported mutable object symbols, runtime-global hooks, and other boundary files already tracked by `safe/docs/unsafe-audit.md`.
+  - If `safe/crates/webp-core/src/lib.rs` can stop relying on `#![allow(unsafe_op_in_unsafe_fn)]` without destabilizing required FFI boundaries, narrow or remove that blanket allowance in this phase. If it must remain, keep it explicitly justified in `safe/docs/unsafe-audit.md` and do not add new crate-wide lint suppressions.
+  - Keep the relink manifest, full C suite, package surface, and Docker harness synchronized with any last-round fixes so the final verification remains reproducible from source.
+  - Treat `original/tests/public_api_test.c` plus the upstream fuzzer build as the required upstream-test proof, because that is the complete upstream test surface checked into `original/tests/`.
 - Verification:
-  - Commands listed above
+  - The software tester executes the full final command matrix, including separate `ctest` passes for `build-c-tests --suite all` and `build-upstream-public-api-test`, the direct installed pkg-config/CMake consumer probes, and confirmation that the committed unsafe audit file is already current.
+  - The senior tester reviews the hardening diff, confirms the unsafe audit and CVE regressions still map to the checked-in risk model, and reruns the highest-signal end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off with the same separate C-test sequencing.
 
 # Critical Files
 
-- `test-original.sh`
-  - Add `--variant original|safe`, `--only tools`, and `--only tool:<name>` support; install safe `.deb` packages when requested; add the explicit tool-smoke matrix; extend the Docker package list with `libglut-dev`.
-- `safe/Cargo.toml`
-  - Virtual workspace manifest, shared dependency declarations, and common build profiles.
-- `safe/rust-toolchain.toml`
-  - Rust toolchain pin for reproducible builds.
-- `safe/abi/original/{libsharpyuv,libwebp,libwebpdecoder,libwebpdemux,libwebpmux}.exports`
-  - Checked-in authoritative export lists used by later symbol verifiers and linker version scripts.
-- `safe/abi/original/sonames.json`
-  - Checked-in SONAME baseline.
-- `safe/abi/original/needed.json`
-  - Checked-in `DT_NEEDED` baseline that later `verify-needed` checks must consume exactly.
-- `safe/abi/original/install-surface.json`
-  - Checked-in package/install baseline, including explicit binary and manpage lists.
-- `safe/abi/original/relink-manifest.json`
-  - Checked-in relink fixtures and link lines for original object files.
-- `safe/include/webp/{decode,demux,encode,mux,mux_types,types}.h`
-  - Canonical installed public headers copied from upstream.
-- `safe/include/webp/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
-  - Canonical installed `libsharpyuv` headers copied from upstream.
-- `safe/pkgconfig/{libwebp,libwebpdecoder,libwebpdemux,libwebpmux,libsharpyuv}.pc.in`
-  - pkg-config metadata preserving upstream names and link semantics.
-- `safe/cmake/WebPConfig.cmake.in`
-  - CMake package metadata preserving upstream `WebP::` package behavior.
-- `safe/man/{cwebp,dwebp,gif2webp,img2webp,vwebp,webpinfo,webpmux}.1`
-  - Packaged manpages reused from upstream.
-- `safe/debian/control`
-  - Debian package split and dependencies.
-- `safe/debian/rules`
-  - Debian build/install entry point invoking Cargo and upstream tool builds.
-- `safe/debian/{libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,libsharpyuv-dev.install,libsharpyuv0.install}`
-  - Runtime/dev install manifests for the library packages.
-- `safe/debian/webp.install`
-  - Explicit binary list for the `webp` package; no wildcard.
-- `safe/debian/webp.manpages`
-  - Explicit manpage list for the `webp` package; no wildcard.
-- `safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
-  - Public C ABI types and version constants.
-- `safe/crates/webp-abi/build.rs`
-  - Layout-test code generation/compilation against copied headers.
-- `safe/crates/webp-abi/tests/ffi_layout.rs`
-  - ABI layout assertions; this is the correct path for the `cargo test -p webp-abi --test ffi_layout` command.
-- `safe/crates/webp-core/src/{alloc.rs,checked.rs,threading.rs,cpu.rs}`
-  - Shared runtime services for safe allocation, overflow checking, worker hooks, and CPU dispatch.
-- `safe/crates/webp-core/src/decode/*.rs`
-  - Decoder modules mirroring `original/src/dec/*.c`.
-- `safe/crates/webp-core/src/encode/*.rs`
-  - Encoder modules mirroring `original/src/enc/*.c`.
-- `safe/crates/webp-core/src/demux/*.rs`
-  - Demux and animation-decode modules mirroring `original/src/demux/*.c`.
-- `safe/crates/webp-core/src/mux/*.rs`
-  - Mux and animation-encode modules mirroring `original/src/mux/*.c`.
-- `safe/crates/webp-core/src/dsp/*.rs`
-  - DSP dispatch and scalar/SIMD helpers mirroring `original/src/dsp/*.c`.
-- `safe/crates/webp-core/src/utils/*.rs`
-  - Bitreader, Huffman, rescaler, filter, and helper logic mirroring `original/src/utils/*.c`.
-- `safe/crates/webp-core/src/sharpyuv/*.rs`
-  - `libsharpyuv` implementation modules.
-- `safe/crates/libwebp/{Cargo.toml,build.rs,src/lib.rs}`
-  - Export crate for `libwebp.so.7` and `libwebp.a`.
-- `safe/crates/libwebpdecoder/{Cargo.toml,build.rs,src/lib.rs}`
-  - Export crate for `libwebpdecoder.so.3` and `libwebpdecoder.a`.
-- `safe/crates/libwebpdemux/{Cargo.toml,build.rs,src/lib.rs}`
-  - Export crate for `libwebpdemux.so.2` and `libwebpdemux.a`.
-- `safe/crates/libwebpmux/{Cargo.toml,build.rs,src/lib.rs}`
-  - Export crate for `libwebpmux.so.3` and `libwebpmux.a`.
-- `safe/crates/libsharpyuv/{Cargo.toml,build.rs,src/lib.rs}`
-  - Export crate for `libsharpyuv.so.0` and `libsharpyuv.a`.
-- `safe/xtask/src/{main.rs,baseline.rs,verify.rs,link.rs,tools.rs,package.rs}`
-  - Orchestration for baseline capture, exact `verify-needed`/symbol/SONAME checks, C-test/tool builds, object relinking, packaging, and verification.
-- `safe/tests/c/{decode_api_test.c,demux_animdecode_test.c,encode_api_test.c}`
-  - C compatibility tests that cover staged subsets of the upstream API.
-- `safe/docs/unsafe-audit.md`
-  - Final inventory and justification for every remaining `unsafe` block.
+- `/home/yans/code/safelibs/ported/libwebp/original/tests/CMakeLists.txt`
+  - Defines the checked-in upstream `webp_public_api_test` surface that must continue to compile and pass unchanged.
+- `/home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer/*`
+  - Upstream fuzzer sources that must still compile against the final package surface.
+- `/home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`
+  - Workspace membership, shared lint policy, and top-level crate graph for the Rust port.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
+  - Public ABI structs, enums, constants, and type aliases that must remain layout-exact with the C headers.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/build.rs`
+  - Generates the ABI layout comparison used by `ffi_layout`.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{lib.rs,alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs}`
+  - Shared allocator helpers, checked math, runtime scaffolding, CPU hook defaults, worker-interface state, and the current crate-level unsafe-op lint allowance that the final hardening phase may need to narrow.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/*`
+  - SharpYuv translation and SharpYuv-specific FFI adapters.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+  - Decode entry points, incremental-decode logic, and decode-side helper exports.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+  - Shared decode/encode DSP helpers reused by translated codec code.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+  - Bit-reader, Huffman, filter, rescaler, and other utility code critical for malformed-input hardening.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/*`
+  - Demux iteration, chunk/frame queries, and animation-decode behavior.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`
+  - Config validation, picture ownership, memory writers, and still-image encode logic.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/*`
+  - Mux read/edit/assemble logic and animation encoder state management.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/lib{sharpyuv,webp,webpdecoder,webpdemux,webpmux}/{Cargo.toml,build.rs,src/lib.rs}`
+  - The shared-library export shims, linker baselines, SONAME emission, and package-facing library surface.
+- `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,tools.rs,verify.rs,main.rs}`
+  - Baseline capture, ELF inspection, relink checks, package generation, tool staging, C-test wiring, harness support, and unsafe auditing.
+- `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/{CMakeLists.txt,decode_api_test.c,demux_animdecode_test.c,encode_api_test.c,runtime_abi_test.c}`
+  - C-side ABI and behavioral regression tests, including the oracle-library comparisons.
+- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{encode_security.rs,cve_2020_36332.rs,malformed_huffman_tables.rs}`
+  - The checked-in arithmetic and resource-exhaustion regressions tied to `relevant_cves.json`.
+- `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/{*.exports,sonames.json,needed.json,install-surface.json,relink-manifest.json}`
+  - The authoritative compatibility baseline consumed by symbol, SONAME, DT_NEEDED, install-tree, and relink checks.
+- `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+  - Ubuntu 24.04 packaging source metadata and install manifests for the drop-in replacement packages. Staged package trees under `safe/debian/tmp/` and `safe/debian/{libsharpyuv-dev,libsharpyuv0,libwebp-dev,libwebp7,libwebpdecoder3,libwebpdemux2,libwebpmux3,webp}/` are byproducts, not contract files.
+- `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+  - Upstream-compatible pkg-config metadata used by downstream compile compatibility.
+- `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+  - The installed CMake package configuration used by downstream build systems.
+- `/home/yans/code/safelibs/ported/libwebp/safe/include/webp/**/*`
+  - Installed public headers that must remain source-compatible with existing C callers.
+- `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+  - Shipped tool manpages for the `webp` package.
+- `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+  - Canonical Docker harness for direct installed pkg-config/CMake consumers, tool smokes, compile probes, and dependent-application runtime validation.
+- `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+  - The fixed 12-application dependent inventory validated by the harness.
+- `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
+  - The checked-arithmetic and resource-exhaustion risk model that the security regressions must continue to cover.
+- `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  - The tracked explicit-unsafe budget that must be updated in place and kept within the documented boundary categories.
 
 # Final Verification
 
-After all phases complete, the final checker should verify the finished port from a clean checkout with Docker available:
+After the last implementation phase completes, the generated workflow should require the final software-tester and senior-tester stages to cover this end-to-end matrix:
 
-1. Build Debian packages from `safe/`.
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
-2. Verify symbols, SONAMEs, and `DT_NEEDED` dependency edges against the phase-1 baselines.
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
-3. Run all Rust-native tests, including ABI layout tests and CVE regressions.
-   - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
-4. Compile and run the unchanged upstream public API regression test against the Rust libraries.
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
-   - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
-5. Verify link compatibility by relinking original object files against the Rust libraries and running the resulting binaries.
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
-6. Verify the full packaged tool surface explicitly.
-   - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
-7. Verify the full dependent runtime matrix.
-   - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
-8. Verify the upstream fuzz targets still build against the Rust static libraries and the remaining `unsafe` is audited.
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
-   - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+1. `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
+2. `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+3. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+4. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+5. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+6. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+7. `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+8. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+9. `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+10. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
+11. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+12. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+13. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+14. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+15. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+16. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+17. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+18. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+19. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+20. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+21. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
+22. `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+23. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+24. `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+25. `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
 
-The port is only complete when all eight steps pass, the `webp` package really contains the full explicit tool list, the relink fixtures execute successfully, the Docker-dependent runtime matrix passes with the safe packages installed, and the remaining `unsafe` surface is documented and confined to unavoidable ABI edges.
+Notes for later workflow generation:
+
+- The final review must explicitly preserve the `software-tester` -> `senior-tester` topology rather than collapsing it into one catch-all verifier.
+- The upstream checked-in tests under `original/tests/` consist of `public_api_test.c` plus the fuzzer sources; the final workflow must therefore combine that upstream surface with the safe-side C regressions, relink checks, package verification, and Docker harness to satisfy the broader source/link/runtime compatibility goal.
+- Because `build-c-tests --suite all` and `build-upstream-public-api-test` both configure `safe/build/tests`, the generated workflow must run `ctest` immediately after each configure/build step rather than only once at the end.
+- The direct installed-metadata probes in `test-original.sh` are harness steps, not additions to `dependents.json`; keep the dependent inventory fixed at 12 applications.
+- If host-local tool compilation is used as a supplemental diagnostic, it must not replace the Docker-backed `package-deb` plus `test-original.sh --variant safe` proof.
