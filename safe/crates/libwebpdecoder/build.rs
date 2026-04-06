@@ -24,7 +24,8 @@ fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {
         from_str(&fs::read_to_string(&sonames_path).unwrap()).unwrap();
     let soname = sonames.get(library).unwrap();
 
-    let mut version_script = String::from("{\n  global:\n");
+    let version_node = library.to_ascii_uppercase();
+    let mut version_script = format!("{version_node} {{\n  global:\n");
     for symbol in exports
         .lines()
         .map(str::trim)

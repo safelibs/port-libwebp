@@ -141,14 +141,22 @@ pub fn inspect_shared_library(path: &Path) -> Result<SharedLibraryInfo> {
 }
 
 pub fn capture_defined_symbols(path: &Path) -> Result<Vec<DefinedSymbol>> {
-    let stdout = capture_output(
-        Command::new("nm")
-            .arg("-D")
-            .arg("--defined-only")
-            .arg("--extern-only")
-            .arg(path),
-    )?;
-    let mut symbols = stdout.lines().filter_map(parse_nm_line).collect::<Vec<_>>();
+    let stdout = capture_output(Command::new("readelf").arg("-sW").arg(path))?;
+    let mut symbols = stdout
+        .lines()
+        .scan(false, |in_dynsym, line| {
+            if line.starts_with("Symbol table '.dynsym'") {
+                *in_dynsym = true;
+                return Some(None);
+            }
+            if *in_dynsym && line.starts_with("Symbol table '") {
+                *in_dynsym = false;
+            }
+            Some((*in_dynsym).then_some(line))
+        })
+        .flatten()
+        .filter_map(parse_readelf_dynamic_symbol_line)
+        .collect::<Vec<_>>();
     symbols.sort_by(|left, right| left.name.cmp(&right.name).then(left.kind.cmp(&right.kind)));
     symbols.dedup_by(|left, right| left.name == right.name && left.kind == right.kind);
     if symbols.is_empty() {
@@ -157,12 +165,48 @@ pub fn capture_defined_symbols(path: &Path) -> Result<Vec<DefinedSymbol>> {
     Ok(symbols)
 }
 
-fn parse_nm_line(line: &str) -> Option<DefinedSymbol> {
-    let mut parts = line.split_whitespace();
-    let _address = parts.next()?;
-    let kind = parts.next()?.chars().next()?;
-    let name = parts.next()?.to_owned();
-    Some(DefinedSymbol { kind, name })
+fn parse_readelf_dynamic_symbol_line(line: &str) -> Option<DefinedSymbol> {
+    let trimmed = line.trim_start();
+    let first = trimmed.chars().next()?;
+    if !first.is_ascii_digit() {
+        return None;
+    }
+
+    let parts = trimmed.split_whitespace().collect::<Vec<_>>();
+    if parts.len() < 8 {
+        return None;
+    }
+
+    let symbol_type = parts[3];
+    let bind = parts[4];
+    let visibility = parts[5];
+    let index = parts[6];
+    let name = parts[7];
+
+    if index == "UND" || visibility == "HIDDEN" || visibility == "INTERNAL" || name.is_empty() {
+        return None;
+    }
+    if bind != "GLOBAL" && bind != "WEAK" {
+        return None;
+    }
+
+    let kind = match symbol_type {
+        "FUNC" | "IFUNC" => 'T',
+        "OBJECT" => 'D',
+        "NOTYPE" => 'B',
+        other => {
+            if other == "TLS" {
+                'D'
+            } else {
+                return None;
+            }
+        }
+    };
+
+    Some(DefinedSymbol {
+        kind,
+        name: name.to_owned(),
+    })
 }
 
 fn bracket_value(line: &str) -> Option<&str> {

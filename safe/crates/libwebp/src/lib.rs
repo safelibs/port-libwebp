@@ -1,7 +1,5 @@
 #![no_std]
 
-use core::ffi::c_void;
-
 use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
 
 #[panic_handler]
@@ -11,29 +9,7 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn WebPMalloc(size: usize) -> *mut c_void {
-    webp_core::webp_malloc(size)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn WebPFree(ptr: *mut c_void) {
-    webp_core::webp_free(ptr);
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn WebPSafeMalloc(nmemb: u64, size: usize) -> *mut c_void {
-    webp_core::webp_safe_malloc(nmemb, size)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn WebPSafeCalloc(nmemb: u64, size: usize) -> *mut c_void {
-    webp_core::webp_safe_calloc(nmemb, size)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn WebPSafeFree(ptr: *mut c_void) {
-    webp_core::webp_safe_free(ptr);
-}
+pub extern "C" fn rust_eh_personality() {}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn WebPSetWorkerInterface(winterface: *const WebPWorkerInterface) -> i32 {
@@ -47,3 +23,29 @@ pub extern "C" fn WebPGetWorkerInterface() -> *const WebPWorkerInterface {
 
 #[unsafe(no_mangle)]
 pub static mut VP8GetCPUInfo: VP8CPUInfo = Some(default_cpu_info);
+
+#[used]
+static KEEP_BUFFER_DEC: unsafe extern "C" fn(
+    *mut webp_core::decode::buffer_dec::WebPDecBuffer,
+    i32,
+) -> i32 = webp_core::decode::buffer_dec::WebPInitDecBufferInternal;
+
+#[used]
+static KEEP_IDEC_DEC: unsafe extern "C" fn(
+    *mut webp_core::decode::idec_dec::WebPDecBuffer,
+) -> *mut webp_core::decode::idec_dec::WebPIDecoder = webp_core::decode::idec_dec::WebPINewDecoder;
+
+#[used]
+static KEEP_VP8_DEC: unsafe extern "C" fn(*const u8, usize) -> i32 =
+    webp_core::decode::vp8_dec::VP8CheckSignature;
+
+#[used]
+static KEEP_VP8L_DEC: unsafe extern "C" fn(*const u8, usize) -> i32 =
+    webp_core::decode::vp8l_dec::VP8LCheckSignature;
+
+#[used]
+static KEEP_WEBP_DEC: unsafe extern "C" fn(
+    *const u8,
+    usize,
+    *mut webp_core::decode::webp_dec::WebPDecoderConfig,
+) -> webp_core::decode::webp_dec::VP8StatusCode = webp_core::decode::webp_dec::WebPDecode;

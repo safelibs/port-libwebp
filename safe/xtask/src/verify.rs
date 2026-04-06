@@ -63,6 +63,14 @@ pub struct CSmokeArgs {
     pub library_dir: Option<PathBuf>,
 }
 
+#[derive(Args, Clone, Debug)]
+pub struct BuildCTestsArgs {
+    #[arg(long)]
+    pub suite: String,
+    #[arg(long, value_name = "DIR")]
+    pub library_dir: Option<PathBuf>,
+}
+
 #[derive(Clone, Copy)]
 enum ExpectedSymbolKind {
     Function,
@@ -255,18 +263,15 @@ pub fn verify_symbols(args: &VerifySymbolsArgs) -> Result<()> {
 }
 
 pub fn verify_symbol_subset(args: &VerifySymbolSubsetArgs) -> Result<()> {
-    let subset = match args.subset.as_str() {
-        "common_runtime" => COMMON_RUNTIME_SYMBOLS,
-        other => bail!("unknown symbol subset `{other}`"),
-    };
+    let subset = resolve_symbol_subset(args)?;
     let libraries = resolve_libraries(&args.libs, args.library_dir.as_deref())?;
     for (name, path) in libraries {
         let baseline = nonempty_lines(
             &fs::read_to_string(args.baseline_dir.join(format!("{name}.exports")))
                 .with_context(|| format!("failed to read baseline exports for {name}"))?,
         );
-        for expected in subset {
-            if !baseline.iter().any(|symbol| symbol == expected.name) {
+        for expected in &subset {
+            if !baseline.iter().any(|symbol| symbol == &expected.name) {
                 bail!(
                     "subset member {} is not present in the {} baseline",
                     expected.name,
@@ -276,7 +281,7 @@ pub fn verify_symbol_subset(args: &VerifySymbolSubsetArgs) -> Result<()> {
         }
 
         let actual = capture_defined_symbols(&path)?;
-        for expected in subset {
+        for expected in &subset {
             let symbol = actual
                 .iter()
                 .find(|symbol| symbol.name == expected.name)
@@ -318,6 +323,52 @@ pub fn c_smoke(args: &CSmokeArgs) -> Result<()> {
         "sharpyuv_runtime" => run_sharpyuv_runtime_smoke(args.library_dir.as_deref()),
         other => bail!("unknown c-smoke scenario `{other}`"),
     }
+}
+
+pub fn build_c_tests(args: &BuildCTestsArgs) -> Result<()> {
+    let root = workspace_root();
+    let search_dir = args
+        .library_dir
+        .clone()
+        .unwrap_or_else(|| root.join("target/release"));
+    let build_dir = root.join("build/tests");
+    let source_dir = root.join("tests/c");
+    let include_dir = root.join("include");
+    let repo_root = root
+        .parent()
+        .context("workspace root should live under the repository root")?;
+    let sample_webp = repo_root.join("original/examples/test.webp");
+    let sample_ppm = repo_root.join("original/examples/test_ref.ppm");
+    let webpdecoder = find_library_artifact(&search_dir, "libwebpdecoder")?;
+    let webp = find_library_artifact(&search_dir, "libwebp")?;
+    let oracle_webpdecoder = find_system_library("libwebpdecoder")?;
+    let oracle_webp = find_system_library("libwebp")?;
+
+    fs::create_dir_all(&build_dir)
+        .with_context(|| format!("failed to create {}", build_dir.display()))?;
+
+    let mut configure = Command::new("cmake");
+    configure
+        .arg("-S")
+        .arg(&source_dir)
+        .arg("-B")
+        .arg(&build_dir)
+        .arg(format!("-DTEST_SUITE={}", args.suite))
+        .arg(format!("-DWEBP_INCLUDE_DIR={}", include_dir.display()))
+        .arg(format!("-DWEBPDECODER_LIBRARY={}", webpdecoder.display()))
+        .arg(format!("-DWEBP_LIBRARY={}", webp.display()))
+        .arg(format!(
+            "-DORACLE_WEBPDECODER_LIBRARY={}",
+            oracle_webpdecoder.display()
+        ))
+        .arg(format!("-DORACLE_WEBP_LIBRARY={}", oracle_webp.display()))
+        .arg(format!("-DTEST_WEBP_PATH={}", sample_webp.display()))
+        .arg(format!("-DTEST_PPM_PATH={}", sample_ppm.display()));
+    run(&mut configure)?;
+
+    let mut build = Command::new("cmake");
+    build.arg("--build").arg(&build_dir);
+    run(&mut build)
 }
 
 fn verify_export_files(baseline_dir: &Path) -> Result<()> {
@@ -374,6 +425,42 @@ fn select_libraries(libs: &[String]) -> Result<Vec<String>> {
         .collect::<Result<Vec<_>>>()?;
     sort_dedup(&mut selected);
     Ok(selected)
+}
+
+#[derive(Clone)]
+struct ExpectedSymbolSpec {
+    name: String,
+    kind: ExpectedSymbolKind,
+}
+
+fn resolve_symbol_subset(args: &VerifySymbolSubsetArgs) -> Result<Vec<ExpectedSymbolSpec>> {
+    match args.subset.as_str() {
+        "common_runtime" => Ok(COMMON_RUNTIME_SYMBOLS
+            .iter()
+            .map(|symbol| ExpectedSymbolSpec {
+                name: symbol.name.to_owned(),
+                kind: symbol.kind,
+            })
+            .collect()),
+        "decode" => {
+            let exports = nonempty_lines(
+                &fs::read_to_string(args.baseline_dir.join("libwebpdecoder.exports"))
+                    .with_context(|| "failed to read baseline exports for libwebpdecoder")?,
+            );
+            Ok(exports
+                .into_iter()
+                .map(|name| ExpectedSymbolSpec {
+                    kind: if name == "VP8GetCPUInfo" {
+                        ExpectedSymbolKind::Object
+                    } else {
+                        ExpectedSymbolKind::Function
+                    },
+                    name,
+                })
+                .collect())
+        }
+        other => bail!("unknown symbol subset `{other}`"),
+    }
 }
 
 fn symbol_kind_matches(symbol: &DefinedSymbol, expected: ExpectedSymbolKind) -> bool {
@@ -475,6 +562,36 @@ int main(void) {
   return 0;
 }
 "#
+}
+
+fn find_system_library(logical_name: &str) -> Result<PathBuf> {
+    let output = Command::new("ldconfig")
+        .arg("-p")
+        .output()
+        .context("failed to execute ldconfig -p")?;
+    if !output.status.success() {
+        bail!("ldconfig -p failed with status {}", output.status);
+    }
+
+    let prefix = format!("{logical_name}.so");
+    let stdout = String::from_utf8(output.stdout).context("ldconfig output was not valid UTF-8")?;
+    let mut fallback = None;
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with(&prefix) {
+            continue;
+        }
+        let Some((_, path)) = trimmed.split_once("=>") else {
+            continue;
+        };
+        let path = PathBuf::from(path.trim());
+        if trimmed.contains("x86-64") {
+            return Ok(path);
+        }
+        fallback = Some(path);
+    }
+
+    fallback.with_context(|| format!("failed to locate system path for {logical_name}"))
 }
 
 fn workspace_root() -> PathBuf {

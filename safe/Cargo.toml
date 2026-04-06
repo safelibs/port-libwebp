@@ -40,7 +40,7 @@ unimplemented = "deny"
 
 [profile.release]
 codegen-units = 1
-lto = "thin"
+lto = false
 panic = "abort"
 strip = "debuginfo"
 

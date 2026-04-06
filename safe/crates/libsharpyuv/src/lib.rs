@@ -10,6 +10,9 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn rust_eh_personality() {}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn SharpYuvGetVersion() -> i32 {
     webp_core::sharpyuv::get_version()
 }

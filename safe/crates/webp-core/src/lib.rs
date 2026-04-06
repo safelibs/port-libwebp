@@ -1,13 +1,18 @@
 #![no_std]
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
+#![allow(unsafe_op_in_unsafe_fn)]
 
 extern crate alloc as rust_alloc;
 
 pub mod alloc;
 pub mod checked;
+mod compat;
 pub mod cpu;
+pub mod decode;
+pub mod dsp;
 pub mod sharpyuv;
 pub mod threading;
+pub mod utils;
 
 pub use alloc::{webp_free, webp_malloc, webp_safe_calloc, webp_safe_free, webp_safe_malloc};
 pub use cpu::{
