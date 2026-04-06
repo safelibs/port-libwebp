@@ -7,7 +7,9 @@ mod verify;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use verify::VerifyNeededArgs;
+use verify::{
+    CSmokeArgs, VerifyNeededArgs, VerifySonamesArgs, VerifySymbolSubsetArgs, VerifySymbolsArgs,
+};
 
 #[derive(Parser, Debug)]
 #[command(about = "Workspace maintenance commands for the safe libwebp port.")]
@@ -28,7 +30,11 @@ enum Command {
         #[arg(long)]
         baseline_dir: PathBuf,
     },
+    VerifySymbols(VerifySymbolsArgs),
+    VerifySymbolSubset(VerifySymbolSubsetArgs),
+    VerifySonames(VerifySonamesArgs),
     VerifyNeeded(VerifyNeededArgs),
+    CSmoke(CSmokeArgs),
 }
 
 fn main() -> Result<()> {
@@ -41,6 +47,10 @@ fn main() -> Result<()> {
         Command::VerifyBaselineManifests { baseline_dir } => {
             verify::verify_baseline_manifests(&baseline_dir)
         }
+        Command::VerifySymbols(args) => verify::verify_symbols(&args),
+        Command::VerifySymbolSubset(args) => verify::verify_symbol_subset(&args),
+        Command::VerifySonames(args) => verify::verify_sonames(&args),
         Command::VerifyNeeded(args) => verify::verify_needed(&args),
+        Command::CSmoke(args) => verify::c_smoke(&args),
     }
 }

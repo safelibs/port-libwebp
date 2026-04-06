@@ -47,6 +47,12 @@ pub struct SharedLibraryInfo {
     pub soname: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct DefinedSymbol {
+    pub kind: char,
+    pub name: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RelinkEntry {
     pub link_line: String,
@@ -104,13 +110,6 @@ pub fn find_library_artifact(build_dir: &Path, logical_name: &str) -> Result<Pat
         .with_context(|| format!("failed to find built artifact for {logical_name}"))
 }
 
-pub fn infer_library_name(path: &Path) -> Option<&'static str> {
-    let file_name = path.file_name()?.to_string_lossy();
-    LIBRARIES.iter().copied().find(|name| {
-        file_name == format!("{name}.so") || file_name.starts_with(&format!("{name}.so."))
-    })
-}
-
 pub fn inspect_shared_library(path: &Path) -> Result<SharedLibraryInfo> {
     let dynamic = capture_output(Command::new("readelf").arg("-d").arg(path))?;
     let mut needed = Vec::new();
@@ -128,7 +127,12 @@ pub fn inspect_shared_library(path: &Path) -> Result<SharedLibraryInfo> {
     sort_dedup(&mut needed);
     let soname = soname.with_context(|| format!("missing SONAME in {}", path.display()))?;
 
-    let exports = capture_exports(path)?;
+    let defined_symbols = capture_defined_symbols(path)?;
+    let mut exports = defined_symbols
+        .iter()
+        .map(|symbol| symbol.name.clone())
+        .collect::<Vec<_>>();
+    sort_dedup(&mut exports);
     Ok(SharedLibraryInfo {
         exports,
         needed,
@@ -136,26 +140,29 @@ pub fn inspect_shared_library(path: &Path) -> Result<SharedLibraryInfo> {
     })
 }
 
-fn capture_exports(path: &Path) -> Result<Vec<String>> {
+pub fn capture_defined_symbols(path: &Path) -> Result<Vec<DefinedSymbol>> {
     let stdout = capture_output(
         Command::new("nm")
             .arg("-D")
             .arg("--defined-only")
             .arg("--extern-only")
-            .arg("-j")
             .arg(path),
     )?;
-    let mut exports = stdout
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToOwned::to_owned)
-        .collect::<Vec<_>>();
-    sort_dedup(&mut exports);
-    if exports.is_empty() {
+    let mut symbols = stdout.lines().filter_map(parse_nm_line).collect::<Vec<_>>();
+    symbols.sort_by(|left, right| left.name.cmp(&right.name).then(left.kind.cmp(&right.kind)));
+    symbols.dedup_by(|left, right| left.name == right.name && left.kind == right.kind);
+    if symbols.is_empty() {
         bail!("no dynamic exports found in {}", path.display());
     }
-    Ok(exports)
+    Ok(symbols)
+}
+
+fn parse_nm_line(line: &str) -> Option<DefinedSymbol> {
+    let mut parts = line.split_whitespace();
+    let _address = parts.next()?;
+    let kind = parts.next()?.chars().next()?;
+    let name = parts.next()?.to_owned();
+    Some(DefinedSymbol { kind, name })
 }
 
 fn bracket_value(line: &str) -> Option<&str> {

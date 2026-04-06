@@ -1,9 +1,22 @@
 [package]
 name = "libwebpdecoder"
+build = "build.rs"
 edition.workspace = true
 license.workspace = true
 publish = false
 version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "webpdecoder"
+path = "src/lib.rs"
+
+[dependencies]
+libc.workspace = true
+webp-core = { path = "../webp-core" }
+
+[build-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true
