@@ -1,83 +1,7 @@
 #![no_std]
 
 use core::ffi::c_char;
-use webp_abi::{
-    WebPAnimEncoder, WebPAnimEncoderOptions, WebPConfig, WebPData, WebPMux, WebPMuxAnimParams,
-    WebPMuxError, WebPMuxFrameInfo,
-};
-
-unsafe extern "C" {
-    fn WebPGetMuxVersion() -> i32;
-    fn WebPNewInternal(version: i32) -> *mut WebPMux;
-    fn WebPMuxDelete(mux: *mut WebPMux);
-    fn WebPMuxCreateInternal(
-        bitstream: *const WebPData,
-        copy_data: i32,
-        version: i32,
-    ) -> *mut WebPMux;
-    fn WebPMuxSetChunk(
-        mux: *mut WebPMux,
-        fourcc: *const c_char,
-        chunk_data: *const WebPData,
-        copy_data: i32,
-    ) -> WebPMuxError;
-    fn WebPMuxGetChunk(
-        mux: *const WebPMux,
-        fourcc: *const c_char,
-        chunk_data: *mut WebPData,
-    ) -> WebPMuxError;
-    fn WebPMuxDeleteChunk(mux: *mut WebPMux, fourcc: *const c_char) -> WebPMuxError;
-    fn WebPMuxSetImage(
-        mux: *mut WebPMux,
-        bitstream: *const WebPData,
-        copy_data: i32,
-    ) -> WebPMuxError;
-    fn WebPMuxPushFrame(
-        mux: *mut WebPMux,
-        frame: *const WebPMuxFrameInfo,
-        copy_data: i32,
-    ) -> WebPMuxError;
-    fn WebPMuxGetFrame(mux: *const WebPMux, nth: u32, frame: *mut WebPMuxFrameInfo)
-        -> WebPMuxError;
-    fn WebPMuxDeleteFrame(mux: *mut WebPMux, nth: u32) -> WebPMuxError;
-    fn WebPMuxSetAnimationParams(
-        mux: *mut WebPMux,
-        params: *const WebPMuxAnimParams,
-    ) -> WebPMuxError;
-    fn WebPMuxGetAnimationParams(
-        mux: *const WebPMux,
-        params: *mut WebPMuxAnimParams,
-    ) -> WebPMuxError;
-    fn WebPMuxSetCanvasSize(mux: *mut WebPMux, width: i32, height: i32) -> WebPMuxError;
-    fn WebPMuxGetCanvasSize(mux: *const WebPMux, width: *mut i32, height: *mut i32)
-        -> WebPMuxError;
-    fn WebPMuxGetFeatures(mux: *const WebPMux, flags: *mut u32) -> WebPMuxError;
-    fn WebPMuxNumChunks(
-        mux: *const WebPMux,
-        id: webp_abi::WebPChunkId,
-        num: *mut i32,
-    ) -> WebPMuxError;
-    fn WebPMuxAssemble(mux: *mut WebPMux, assembled_data: *mut WebPData) -> WebPMuxError;
-    fn WebPAnimEncoderOptionsInitInternal(
-        enc_options: *mut WebPAnimEncoderOptions,
-        abi_version: i32,
-    ) -> i32;
-    fn WebPAnimEncoderNewInternal(
-        width: i32,
-        height: i32,
-        enc_options: *const WebPAnimEncoderOptions,
-        abi_version: i32,
-    ) -> *mut WebPAnimEncoder;
-    fn WebPAnimEncoderAdd(
-        enc: *mut WebPAnimEncoder,
-        frame: *mut webp_abi::WebPPicture,
-        timestamp_ms: i32,
-        config: *const WebPConfig,
-    ) -> i32;
-    fn WebPAnimEncoderAssemble(enc: *mut WebPAnimEncoder, webp_data: *mut WebPData) -> i32;
-    fn WebPAnimEncoderGetError(enc: *mut WebPAnimEncoder) -> *const c_char;
-    fn WebPAnimEncoderDelete(enc: *mut WebPAnimEncoder);
-}
+use webp_core::mux::{anim_encode, muxedit, muxinternal, muxread};
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
@@ -88,104 +12,191 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 pub extern "C" fn rust_eh_personality() {}
 
 #[used]
-static KEEP_GET_MUX_VERSION: unsafe extern "C" fn() -> i32 = WebPGetMuxVersion;
+static KEEP_BUFFER_DEC: unsafe extern "C" fn(
+    *mut webp_core::decode::buffer_dec::WebPDecBuffer,
+    i32,
+) -> i32 = webp_core::decode::buffer_dec::WebPInitDecBufferInternal;
+
 #[used]
-static KEEP_NEW_INTERNAL: unsafe extern "C" fn(i32) -> *mut WebPMux = WebPNewInternal;
+static KEEP_IDEC_DEC: unsafe extern "C" fn(
+    *mut webp_core::decode::idec_dec::WebPDecBuffer,
+) -> *mut webp_core::decode::idec_dec::WebPIDecoder = webp_core::decode::idec_dec::WebPINewDecoder;
+
 #[used]
-static KEEP_MUX_DELETE: unsafe extern "C" fn(*mut WebPMux) = WebPMuxDelete;
+static KEEP_VP8_DEC: unsafe extern "C" fn(*const u8, usize) -> i32 =
+    webp_core::decode::vp8_dec::VP8CheckSignature;
+
 #[used]
-static KEEP_MUX_CREATE_INTERNAL: unsafe extern "C" fn(*const WebPData, i32, i32) -> *mut WebPMux =
-    WebPMuxCreateInternal;
+static KEEP_VP8L_DEC: unsafe extern "C" fn(*const u8, usize) -> i32 =
+    webp_core::decode::vp8l_dec::VP8LCheckSignature;
+
+#[used]
+static KEEP_WEBP_DEC: unsafe extern "C" fn(
+    *const u8,
+    usize,
+    *mut webp_core::decode::webp_dec::WebPDecoderConfig,
+) -> webp_core::decode::webp_dec::VP8StatusCode = webp_core::decode::webp_dec::WebPDecode;
+
+#[used]
+static KEEP_CONFIG_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::config_enc::WebPConfig,
+    webp_core::encode::config_enc::WebPPreset,
+    f32,
+    i32,
+) -> i32 = webp_core::encode::config_enc::WebPConfigInitInternal;
+
+#[used]
+static KEEP_PICTURE_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::picture_enc::WebPPicture,
+    i32,
+) -> i32 = webp_core::encode::picture_enc::WebPPictureInitInternal;
+
+#[used]
+static KEEP_PICTURE_CSP_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::picture_csp_enc::WebPPicture,
+    *const u8,
+    i32,
+) -> i32 = webp_core::encode::picture_csp_enc::WebPPictureImportRGBA;
+
+#[used]
+static KEEP_PICTURE_RESCALE_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::picture_rescale_enc::WebPPicture,
+    i32,
+    i32,
+    i32,
+    i32,
+    *mut webp_core::encode::picture_rescale_enc::WebPPicture,
+) -> i32 = webp_core::encode::picture_rescale_enc::WebPPictureView;
+
+#[used]
+static KEEP_PICTURE_TOOLS_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::picture_csp_enc::WebPPicture,
+) -> i32 = webp_core::encode::picture_csp_enc::WebPPictureHasTransparency;
+
+#[used]
+static KEEP_WEBP_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::webp_enc::WebPConfig,
+    *mut webp_core::encode::webp_enc::WebPPicture,
+) -> i32 = webp_core::encode::webp_enc::WebPEncode;
+
+#[used]
+static KEEP_GET_MUX_VERSION: unsafe extern "C" fn() -> i32 = muxinternal::WebPGetMuxVersion;
+#[used]
+static KEEP_NEW_INTERNAL: unsafe extern "C" fn(i32) -> *mut muxedit::WebPMux =
+    muxedit::WebPNewInternal;
+#[used]
+static KEEP_MUX_DELETE: unsafe extern "C" fn(*mut muxedit::WebPMux) = muxedit::WebPMuxDelete;
+#[used]
+static KEEP_MUX_CREATE_INTERNAL: unsafe extern "C" fn(
+    *const muxread::WebPData,
+    i32,
+    i32,
+) -> *mut muxread::WebPMux = muxread::WebPMuxCreateInternal;
 #[used]
 static KEEP_MUX_SET_CHUNK: unsafe extern "C" fn(
-    *mut WebPMux,
+    *mut muxedit::WebPMux,
     *const c_char,
-    *const WebPData,
+    *const muxedit::WebPData,
     i32,
-) -> WebPMuxError = WebPMuxSetChunk;
+) -> muxedit::WebPMuxError = muxedit::WebPMuxSetChunk;
 #[used]
 static KEEP_MUX_GET_CHUNK: unsafe extern "C" fn(
-    *const WebPMux,
+    *const muxread::WebPMux,
     *const c_char,
-    *mut WebPData,
-) -> WebPMuxError = WebPMuxGetChunk;
+    *mut muxread::WebPData,
+) -> muxread::WebPMuxError = muxread::WebPMuxGetChunk;
 #[used]
-static KEEP_MUX_DELETE_CHUNK: unsafe extern "C" fn(*mut WebPMux, *const c_char) -> WebPMuxError =
-    WebPMuxDeleteChunk;
+static KEEP_MUX_DELETE_CHUNK: unsafe extern "C" fn(
+    *mut muxedit::WebPMux,
+    *const c_char,
+) -> muxedit::WebPMuxError = muxedit::WebPMuxDeleteChunk;
 #[used]
 static KEEP_MUX_SET_IMAGE: unsafe extern "C" fn(
-    *mut WebPMux,
-    *const WebPData,
+    *mut muxedit::WebPMux,
+    *const muxedit::WebPData,
     i32,
-) -> WebPMuxError = WebPMuxSetImage;
+) -> muxedit::WebPMuxError = muxedit::WebPMuxSetImage;
 #[used]
 static KEEP_MUX_PUSH_FRAME: unsafe extern "C" fn(
-    *mut WebPMux,
-    *const WebPMuxFrameInfo,
+    *mut muxedit::WebPMux,
+    *const muxedit::WebPMuxFrameInfo,
     i32,
-) -> WebPMuxError = WebPMuxPushFrame;
+) -> muxedit::WebPMuxError = muxedit::WebPMuxPushFrame;
 #[used]
 static KEEP_MUX_GET_FRAME: unsafe extern "C" fn(
-    *const WebPMux,
+    *const muxread::WebPMux,
     u32,
-    *mut WebPMuxFrameInfo,
-) -> WebPMuxError = WebPMuxGetFrame;
+    *mut muxread::WebPMuxFrameInfo,
+) -> muxread::WebPMuxError = muxread::WebPMuxGetFrame;
 #[used]
-static KEEP_MUX_DELETE_FRAME: unsafe extern "C" fn(*mut WebPMux, u32) -> WebPMuxError =
-    WebPMuxDeleteFrame;
+static KEEP_MUX_DELETE_FRAME: unsafe extern "C" fn(
+    *mut muxedit::WebPMux,
+    u32,
+) -> muxedit::WebPMuxError = muxedit::WebPMuxDeleteFrame;
 #[used]
 static KEEP_SET_ANIMATION_PARAMS: unsafe extern "C" fn(
-    *mut WebPMux,
-    *const WebPMuxAnimParams,
-) -> WebPMuxError = WebPMuxSetAnimationParams;
+    *mut muxedit::WebPMux,
+    *const muxedit::WebPMuxAnimParams,
+) -> muxedit::WebPMuxError = muxedit::WebPMuxSetAnimationParams;
 #[used]
 static KEEP_GET_ANIMATION_PARAMS: unsafe extern "C" fn(
-    *const WebPMux,
-    *mut WebPMuxAnimParams,
-) -> WebPMuxError = WebPMuxGetAnimationParams;
+    *const muxread::WebPMux,
+    *mut muxread::WebPMuxAnimParams,
+) -> muxread::WebPMuxError = muxread::WebPMuxGetAnimationParams;
 #[used]
-static KEEP_SET_CANVAS_SIZE: unsafe extern "C" fn(*mut WebPMux, i32, i32) -> WebPMuxError =
-    WebPMuxSetCanvasSize;
+static KEEP_SET_CANVAS_SIZE: unsafe extern "C" fn(
+    *mut muxedit::WebPMux,
+    i32,
+    i32,
+) -> muxedit::WebPMuxError = muxedit::WebPMuxSetCanvasSize;
 #[used]
 static KEEP_GET_CANVAS_SIZE: unsafe extern "C" fn(
-    *const WebPMux,
+    *const muxread::WebPMux,
     *mut i32,
     *mut i32,
-) -> WebPMuxError = WebPMuxGetCanvasSize;
+) -> muxread::WebPMuxError = muxread::WebPMuxGetCanvasSize;
 #[used]
-static KEEP_GET_FEATURES: unsafe extern "C" fn(*const WebPMux, *mut u32) -> WebPMuxError =
-    WebPMuxGetFeatures;
+static KEEP_GET_FEATURES: unsafe extern "C" fn(
+    *const muxread::WebPMux,
+    *mut muxread::uint32_t,
+) -> muxread::WebPMuxError = muxread::WebPMuxGetFeatures;
 #[used]
 static KEEP_NUM_CHUNKS: unsafe extern "C" fn(
-    *const WebPMux,
-    webp_abi::WebPChunkId,
+    *const muxread::WebPMux,
+    muxread::WebPChunkId,
     *mut i32,
-) -> WebPMuxError = WebPMuxNumChunks;
+) -> muxread::WebPMuxError = muxread::WebPMuxNumChunks;
 #[used]
-static KEEP_ASSEMBLE: unsafe extern "C" fn(*mut WebPMux, *mut WebPData) -> WebPMuxError =
-    WebPMuxAssemble;
+static KEEP_ASSEMBLE: unsafe extern "C" fn(
+    *mut muxedit::WebPMux,
+    *mut muxedit::WebPData,
+) -> muxedit::WebPMuxError = muxedit::WebPMuxAssemble;
 #[used]
-static KEEP_ANIM_OPTIONS_INIT: unsafe extern "C" fn(*mut WebPAnimEncoderOptions, i32) -> i32 =
-    WebPAnimEncoderOptionsInitInternal;
+static KEEP_ANIM_OPTIONS_INIT: unsafe extern "C" fn(*mut anim_encode::WebPAnimEncoderOptions, i32) -> i32 =
+    anim_encode::WebPAnimEncoderOptionsInitInternal;
 #[used]
 static KEEP_ANIM_NEW_INTERNAL: unsafe extern "C" fn(
     i32,
     i32,
-    *const WebPAnimEncoderOptions,
+    *const anim_encode::WebPAnimEncoderOptions,
     i32,
-) -> *mut WebPAnimEncoder = WebPAnimEncoderNewInternal;
+) -> *mut anim_encode::WebPAnimEncoder = anim_encode::WebPAnimEncoderNewInternal;
 #[used]
 static KEEP_ANIM_ADD: unsafe extern "C" fn(
-    *mut WebPAnimEncoder,
-    *mut webp_abi::WebPPicture,
+    *mut anim_encode::WebPAnimEncoder,
+    *mut anim_encode::WebPPicture,
     i32,
-    *const WebPConfig,
-) -> i32 = WebPAnimEncoderAdd;
+    *const anim_encode::WebPConfig,
+) -> i32 = anim_encode::WebPAnimEncoderAdd;
 #[used]
-static KEEP_ANIM_ASSEMBLE: unsafe extern "C" fn(*mut WebPAnimEncoder, *mut WebPData) -> i32 =
-    WebPAnimEncoderAssemble;
+static KEEP_ANIM_ASSEMBLE: unsafe extern "C" fn(
+    *mut anim_encode::WebPAnimEncoder,
+    *mut anim_encode::WebPData,
+) -> i32 = anim_encode::WebPAnimEncoderAssemble;
 #[used]
-static KEEP_ANIM_GET_ERROR: unsafe extern "C" fn(*mut WebPAnimEncoder) -> *const c_char =
-    WebPAnimEncoderGetError;
+static KEEP_ANIM_GET_ERROR: unsafe extern "C" fn(
+    *mut anim_encode::WebPAnimEncoder,
+) -> *const c_char = anim_encode::WebPAnimEncoderGetError;
 #[used]
-static KEEP_ANIM_DELETE: unsafe extern "C" fn(*mut WebPAnimEncoder) = WebPAnimEncoderDelete;
+static KEEP_ANIM_DELETE: unsafe extern "C" fn(*mut anim_encode::WebPAnimEncoder) =
+    anim_encode::WebPAnimEncoderDelete;

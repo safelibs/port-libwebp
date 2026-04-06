@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 libc.workspace = true
-webp-abi = { path = "../webp-abi" }
+webp-core = { path = "../webp-core" }
 
 [build-dependencies]
 cc = "1.2.20"

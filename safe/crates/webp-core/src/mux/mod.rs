@@ -1,8 +1,4 @@
-//! Mux and animation-encode module placeholders.
-//!
-//! This phase wires the safe workspace to the unchanged upstream mux
-//! implementation through `libwebpmux` while reserving the `webp-core::mux`
-//! module tree for the eventual in-Rust port.
+//! Rust ports of the upstream mux and animation encode sources.
 
 pub mod anim_encode;
 pub mod muxedit;

@@ -6,20 +6,24 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
-    compile_mux_support();
+    compile_encoder_support();
     ensure_webp_dependency();
     emit_linker_baseline("libwebpmux", &["-lc", "-lm"]);
     println!("cargo:rustc-link-lib=dylib=webp");
 }
 
-fn compile_mux_support() {
+fn compile_encoder_support() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let original_dir = manifest_dir.join("../../../original");
     let support_sources = [
-        "src/mux/anim_encode.c",
-        "src/mux/muxedit.c",
-        "src/mux/muxinternal.c",
-        "src/mux/muxread.c",
+        "src/enc/picture_psnr_enc.c",
+        "src/dsp/cost.c",
+        "src/dsp/enc.c",
+        "src/dsp/lossless_enc.c",
+        "src/dsp/ssim.c",
+        "src/utils/bit_writer_utils.c",
+        "src/utils/huffman_encode_utils.c",
+        "src/utils/quant_levels_utils.c",
     ];
 
     let mut build = cc::Build::new();
@@ -32,7 +36,7 @@ fn compile_mux_support() {
         build.file(path);
     }
 
-    build.compile("webpmux_upstream");
+    build.compile("webpmux_encoder_support");
 }
 
 fn ensure_webp_dependency() {

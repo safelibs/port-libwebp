@@ -314,7 +314,7 @@ dependencies = [
  "cc",
  "libc",
  "serde_json",
- "webp-abi",
+ "webp-core",
 ]
 
 [[package]]
