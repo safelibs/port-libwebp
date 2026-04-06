@@ -258,11 +258,8 @@ unsafe extern "C" fn VP8RGBToV(
         - 4684 as ::core::ffi::c_int * b;
     return VP8ClipUV(v, rounding);
 }
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 41] = unsafe {
-    ::core::mem::transmute::<[u8; 41], [::core::ffi::c_char; 41]>(
-        *b"void WebPInitConvertARGBToYUV_body(void)\0",
-    )
-};
+pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 41] =
+    crate::compat::c_char_array(b"void WebPInitConvertARGBToYUV_body(void)\0");
 unsafe extern "C" fn YuvToRgbRow(
     mut y: *const uint8_t,
     mut u: *const uint8_t,

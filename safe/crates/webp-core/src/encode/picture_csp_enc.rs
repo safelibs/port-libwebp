@@ -226,11 +226,8 @@ pub const YUV_HALF: C2RustUnnamed = 32768;
 pub type C2RustUnnamed = ::core::ffi::c_uint;
 pub const YUV_MASK2: C2RustUnnamed = 16383;
 pub const YUV_FIX2: C2RustUnnamed = 6;
-pub const __ASSERT_FUNCTION_0: [::core::ffi::c_char; 47] = unsafe {
-    ::core::mem::transmute::<[u8; 47], [::core::ffi::c_char; 47]>(
-        *b"int VP8RandomBits2(VP8Random *const, int, int)\0",
-    )
-};
+pub const __ASSERT_FUNCTION_0: [::core::ffi::c_char; 47] =
+    crate::compat::c_char_array(b"int VP8RandomBits2(VP8Random *const, int, int)\0");
 pub const ALPHA_OFFSET: ::core::ffi::c_int = 3 as ::core::ffi::c_int - 0 as ::core::ffi::c_int;
 unsafe extern "C" fn CheckNonOpaque(
     mut alpha: *const uint8_t,

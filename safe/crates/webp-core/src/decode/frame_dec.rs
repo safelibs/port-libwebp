@@ -416,11 +416,8 @@ pub struct WebPWorkerInterface {
     pub End: Option<unsafe extern "C" fn(*mut WebPWorker) -> ()>,
 }
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 47] = unsafe {
-    ::core::mem::transmute::<[u8; 47], [::core::ffi::c_char; 47]>(
-        *b"int VP8RandomBits2(VP8Random *const, int, int)\0",
-    )
-};
+pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 47] =
+    crate::compat::c_char_array(b"int VP8RandomBits2(VP8Random *const, int, int)\0");
 pub const BPS: ::core::ffi::c_int = 32 as ::core::ffi::c_int;
 pub const VP8_DITHER_AMP_BITS: ::core::ffi::c_int = 7 as ::core::ffi::c_int;
 pub const VP8_RANDOM_DITHER_FIX: ::core::ffi::c_int = 8 as ::core::ffi::c_int;

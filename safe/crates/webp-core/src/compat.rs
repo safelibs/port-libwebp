@@ -1,4 +1,4 @@
-use core::ffi::{c_float, c_int};
+use core::ffi::{c_char, c_float, c_int};
 
 const VP8_RANDOM_DITHER_FIX: c_int = 8;
 const VP8_RANDOM_TABLE_SIZE: usize = 55;
@@ -11,6 +11,16 @@ const VP8_RANDOM_TABLE: [u32; VP8_RANDOM_TABLE_SIZE] = [
     0x56b41583, 0x73e502e3, 0x44cab16f, 0x28264d42, 0x73baaefb, 0x0a50ebed, 0x1d6ab6fb, 0x0d3ad40b,
     0x35db3b68, 0x2b081e83, 0x77ce6b95, 0x5181e5f0, 0x78853bbc, 0x009f9494, 0x27e5ed3c,
 ];
+
+pub(crate) const fn c_char_array<const N: usize>(bytes: &[u8; N]) -> [c_char; N] {
+    let mut chars = [0; N];
+    let mut index = 0;
+    while index < N {
+        chars[index] = bytes[index] as c_char;
+        index += 1;
+    }
+    chars
+}
 
 #[repr(C)]
 struct VP8Random {

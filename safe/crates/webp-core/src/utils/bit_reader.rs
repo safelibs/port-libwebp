@@ -47,11 +47,8 @@ pub struct VP8LBitReader {
     pub eos_: ::core::ffi::c_int,
 }
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const __ASSERT_FUNCTION_0: [::core::ffi::c_char; 50] = unsafe {
-    ::core::mem::transmute::<[u8; 50], [::core::ffi::c_char; 50]>(
-        *b"int VP8LIsEndOfStream(const VP8LBitReader *const)\0",
-    )
-};
+pub const __ASSERT_FUNCTION_0: [::core::ffi::c_char; 50] =
+    crate::compat::c_char_array(b"int VP8LIsEndOfStream(const VP8LBitReader *const)\0");
 pub const BITS: ::core::ffi::c_int = 56 as ::core::ffi::c_int;
 pub const VP8L_MAX_NUM_BIT_READ: ::core::ffi::c_int = 24 as ::core::ffi::c_int;
 pub const VP8L_LBITS: ::core::ffi::c_int = 64 as ::core::ffi::c_int;

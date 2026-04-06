@@ -483,11 +483,8 @@ unsafe extern "C" fn WebPIsRGBMode(mut mode: WEBP_CSP_MODE) -> ::core::ffi::c_in
     return ((mode as ::core::ffi::c_uint) < MODE_YUV as ::core::ffi::c_int as ::core::ffi::c_uint)
         as ::core::ffi::c_int;
 }
-pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 50] = unsafe {
-    ::core::mem::transmute::<[u8; 50], [::core::ffi::c_char; 50]>(
-        *b"int VP8LIsEndOfStream(const VP8LBitReader *const)\0",
-    )
-};
+pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 50] =
+    crate::compat::c_char_array(b"int VP8LIsEndOfStream(const VP8LBitReader *const)\0");
 pub const VP8L_LBITS: ::core::ffi::c_int = 64 as ::core::ffi::c_int;
 pub const VP8L_WBITS: ::core::ffi::c_int = 32 as ::core::ffi::c_int;
 #[inline]
