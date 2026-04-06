@@ -1,0 +1,34 @@
+{
+  "targets": {
+    "cwebp": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/cwebp.dir/examples/cwebp.c.o -o cwebp -Wl,-rpath,$BUILD_DIR: libexampleutil.a libimagedec.a libimageioutil.a libwebpdemux.so.2.0.14 libwebp.so.7.1.8 libsharpyuv.so.0.0.1 -lm /usr/lib/x86_64-linux-gnu/libpng.so /usr/lib/x86_64-linux-gnu/libz.so /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib/x86_64-linux-gnu/libtiff.so",
+      "link_txt": "CMakeFiles/cwebp.dir/link.txt",
+      "source": "examples/cwebp.c"
+    },
+    "dwebp": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/dwebp.dir/examples/dwebp.c.o -o dwebp -Wl,-rpath,$BUILD_DIR: libexampleutil.a libimagedec.a libimageenc.a libwebpdemux.so.2.0.14 /usr/lib/x86_64-linux-gnu/libpng.so /usr/lib/x86_64-linux-gnu/libz.so /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib/x86_64-linux-gnu/libtiff.so libimageioutil.a libwebp.so.7.1.8 libsharpyuv.so.0.0.1 -lm",
+      "link_txt": "CMakeFiles/dwebp.dir/link.txt",
+      "source": "examples/dwebp.c"
+    },
+    "img2webp": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/img2webp.dir/examples/img2webp.c.o -o img2webp -Wl,-rpath,$BUILD_DIR: libexampleutil.a libimagedec.a libimageioutil.a libwebpmux.so.3.0.13 libwebpdemux.so.2.0.14 /usr/lib/x86_64-linux-gnu/libpng.so /usr/lib/x86_64-linux-gnu/libz.so /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib/x86_64-linux-gnu/libtiff.so libwebp.so.7.1.8 libsharpyuv.so.0.0.1 -lm",
+      "link_txt": "CMakeFiles/img2webp.dir/link.txt",
+      "source": "examples/img2webp.c"
+    },
+    "webp_public_api_test": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/webp_public_api_test.dir/public_api_test.c.o -o webp_public_api_test -Wl,-rpath,$BUILD_DIR ../libwebpdemux.so.2.0.14 ../libwebpmux.so.3.0.13 ../libwebp.so.7.1.8 ../libsharpyuv.so.0.0.1 -lm",
+      "link_txt": "tests/CMakeFiles/webp_public_api_test.dir/link.txt",
+      "source": "tests/public_api_test.c"
+    },
+    "webpinfo": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/webpinfo.dir/examples/webpinfo.c.o -o webpinfo -Wl,-rpath,$BUILD_DIR: libexampleutil.a libimageioutil.a libwebp.so.7.1.8 libsharpyuv.so.0.0.1 -lm",
+      "link_txt": "CMakeFiles/webpinfo.dir/link.txt",
+      "source": "examples/webpinfo.c"
+    },
+    "webpmux": {
+      "link_line": "/usr/bin/cc -pthread -O3 -DNDEBUG CMakeFiles/webpmux.dir/examples/webpmux.c.o -o webpmux -Wl,-rpath,$BUILD_DIR: libexampleutil.a libimageioutil.a libwebpmux.so.3.0.13 libwebp.so.7.1.8 libsharpyuv.so.0.0.1 -lm",
+      "link_txt": "CMakeFiles/webpmux.dir/link.txt",
+      "source": "examples/webpmux.c"
+    }
+  }
+}

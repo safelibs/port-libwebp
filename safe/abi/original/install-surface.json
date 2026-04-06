@@ -1,0 +1,106 @@
+{
+  "binaries": [
+    "cwebp",
+    "dwebp",
+    "gif2webp",
+    "img2webp",
+    "vwebp",
+    "webpinfo",
+    "webpmux",
+    "anim_diff",
+    "anim_dump"
+  ],
+  "cmake_files": [
+    "lib/cmake/WebP/WebPConfig.cmake",
+    "lib/cmake/WebP/WebPConfigVersion.cmake",
+    "lib/cmake/WebP/WebPTargets.cmake"
+  ],
+  "headers": [
+    "include/webp/decode.h",
+    "include/webp/demux.h",
+    "include/webp/encode.h",
+    "include/webp/mux.h",
+    "include/webp/mux_types.h",
+    "include/webp/types.h",
+    "include/webp/sharpyuv/sharpyuv.h",
+    "include/webp/sharpyuv/sharpyuv_csp.h"
+  ],
+  "manpages": [
+    "cwebp.1",
+    "dwebp.1",
+    "gif2webp.1",
+    "img2webp.1",
+    "vwebp.1",
+    "webpinfo.1",
+    "webpmux.1"
+  ],
+  "package_names": [
+    "libwebp-dev",
+    "libwebp7",
+    "libwebpdemux2",
+    "libwebpmux3",
+    "libwebpdecoder3",
+    "libsharpyuv0",
+    "libsharpyuv-dev",
+    "webp"
+  ],
+  "packages": {
+    "libsharpyuv-dev": {
+      "install_globs": [
+        "usr/include/webp/sharpyuv/*",
+        "usr/lib/*/pkgconfig/libsharpyuv.pc",
+        "usr/lib/*/libsharpyuv.so",
+        "usr/lib/*/libsharpyuv.a"
+      ]
+    },
+    "libsharpyuv0": {
+      "install_globs": [
+        "usr/lib/*/libsharpyuv.so.0",
+        "usr/lib/*/libsharpyuv.so.0.*"
+      ]
+    },
+    "libwebp-dev": {
+      "install_globs": [
+        "usr/include/webp/*.h",
+        "usr/lib/*/libwebp*.so",
+        "usr/lib/*/libwebp*.a",
+        "usr/lib/*/pkgconfig/libwebp.pc",
+        "usr/lib/*/pkgconfig/libwebp*.pc",
+        "usr/lib/*/cmake/WebP/*"
+      ]
+    },
+    "libwebp7": {
+      "install_globs": [
+        "usr/lib/*/libwebp.so.*"
+      ]
+    },
+    "libwebpdecoder3": {
+      "install_globs": [
+        "usr/lib/*/libwebpdecoder.so.3",
+        "usr/lib/*/libwebpdecoder.so.3.*"
+      ]
+    },
+    "libwebpdemux2": {
+      "install_globs": [
+        "usr/lib/*/libwebpdemux.so.*"
+      ]
+    },
+    "libwebpmux3": {
+      "install_globs": [
+        "usr/lib/*/libwebpmux.so.*"
+      ]
+    },
+    "webp": {
+      "install_globs": [
+        "usr/bin/*"
+      ]
+    }
+  },
+  "pkg_config_files": [
+    "lib/pkgconfig/libwebp.pc",
+    "lib/pkgconfig/libwebpdecoder.pc",
+    "lib/pkgconfig/libwebpdemux.pc",
+    "lib/pkgconfig/libwebpmux.pc",
+    "lib/pkgconfig/libsharpyuv.pc"
+  ]
+}

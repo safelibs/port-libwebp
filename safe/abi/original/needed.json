@@ -1,0 +1,23 @@
+{
+  "libsharpyuv": [
+    "libc.so.6",
+    "libm.so.6"
+  ],
+  "libwebp": [
+    "libc.so.6",
+    "libm.so.6",
+    "libsharpyuv.so.0"
+  ],
+  "libwebpdecoder": [
+    "libc.so.6"
+  ],
+  "libwebpdemux": [
+    "libc.so.6",
+    "libwebp.so.7"
+  ],
+  "libwebpmux": [
+    "libc.so.6",
+    "libm.so.6",
+    "libwebp.so.7"
+  ]
+}
