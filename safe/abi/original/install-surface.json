@@ -93,6 +93,9 @@
     "webp": {
       "install_globs": [
         "usr/bin/*"
+      ],
+      "manpage_globs": [
+        "usr/share/man/man1/*.1"
       ]
     }
   },

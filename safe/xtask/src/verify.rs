@@ -3,7 +3,7 @@ use crate::link::{
 };
 use crate::package::{
     InstallSurface, EXPECTED_CMAKE_FILES, EXPECTED_HEADERS, EXPECTED_MANPAGES, EXPECTED_PACKAGES,
-    EXPECTED_PKGCONFIG_FILES, EXPECTED_WEBP_TOOLS,
+    EXPECTED_PKGCONFIG_FILES, EXPECTED_WEBP_MANPAGE_GLOBS, EXPECTED_WEBP_TOOLS,
 };
 use crate::tools::{nonempty_lines, read_json, sort_dedup};
 use anyhow::{bail, Context, Result};
@@ -80,6 +80,15 @@ pub fn verify_baseline_manifests(baseline_dir: &Path) -> Result<()> {
     for (package, entry) in &install_surface.packages {
         if entry.install_globs.is_empty() {
             bail!("package {package} has no recorded install globs");
+        }
+        if package == "webp" {
+            assert_exact(
+                "webp.manpages globs",
+                &entry.manpage_globs,
+                EXPECTED_WEBP_MANPAGE_GLOBS,
+            )?;
+        } else if !entry.manpage_globs.is_empty() {
+            bail!("unexpected Debian manpage globs recorded for package {package}");
         }
     }
 

@@ -63,6 +63,8 @@ pub const EXPECTED_MANPAGES: &[&str] = &[
     "webpmux.1",
 ];
 
+pub const EXPECTED_WEBP_MANPAGE_GLOBS: &[&str] = &["usr/share/man/man1/*.1"];
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct InstallSurface {
     pub binaries: Vec<String>,
@@ -77,6 +79,8 @@ pub struct InstallSurface {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PackageInstall {
     pub install_globs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub manpage_globs: Vec<String>,
 }
 
 pub fn capture_install_surface(original_dir: &Path) -> Result<InstallSurface> {
@@ -89,7 +93,12 @@ pub fn capture_install_surface(original_dir: &Path) -> Result<InstallSurface> {
         .with_context(|| format!("failed to read {}", man_makefile_path.display()))?;
 
     let package_names = parse_control_packages(&debian_dir.join("control"))?;
-    let packages = parse_install_files(&debian_dir)?;
+    let mut packages = parse_install_files(&debian_dir)?;
+    let webp_manpage_globs = parse_webp_manpages(&debian_dir.join("webp.manpages"))?;
+    packages
+        .get_mut("webp")
+        .context("missing `webp` package entry for Debian manpages")?
+        .manpage_globs = webp_manpage_globs;
     let headers = parse_public_headers(&cmake)?;
     let pkg_config_files = parse_pkg_config_files(&cmake)?;
     let cmake_files = parse_cmake_install_files(&cmake)?;
@@ -143,7 +152,13 @@ fn parse_install_files(debian_dir: &Path) -> Result<BTreeMap<String, PackageInst
             .filter(|line| !line.is_empty())
             .map(ToOwned::to_owned)
             .collect::<Vec<_>>();
-        packages.insert(package_name, PackageInstall { install_globs });
+        packages.insert(
+            package_name,
+            PackageInstall {
+                install_globs,
+                manpage_globs: Vec::new(),
+            },
+        );
     }
 
     let actual = packages.keys().map(String::as_str).collect::<Vec<_>>();
@@ -157,6 +172,17 @@ fn parse_install_files(debian_dir: &Path) -> Result<BTreeMap<String, PackageInst
         );
     }
     Ok(packages)
+}
+
+fn parse_webp_manpages(path: &Path) -> Result<Vec<String>> {
+    let globs = fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    require_exact("webp.manpages globs", &globs, EXPECTED_WEBP_MANPAGE_GLOBS)
 }
 
 fn parse_public_headers(cmake: &str) -> Result<Vec<String>> {
