@@ -8,8 +8,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use verify::{
-    BuildCTestsArgs, CSmokeArgs, VerifyNeededArgs, VerifySonamesArgs, VerifySymbolSubsetArgs,
-    VerifySymbolsArgs,
+    BuildCTestsArgs, BuildUpstreamToolsArgs, CSmokeArgs, ToolSmokeArgs, VerifyNeededArgs,
+    VerifySonamesArgs, VerifySymbolSubsetArgs, VerifySymbolsArgs,
 };
 
 #[derive(Parser, Debug)]
@@ -37,6 +37,8 @@ enum Command {
     VerifyNeeded(VerifyNeededArgs),
     BuildCTests(BuildCTestsArgs),
     CSmoke(CSmokeArgs),
+    BuildUpstreamTools(BuildUpstreamToolsArgs),
+    ToolSmoke(ToolSmokeArgs),
 }
 
 fn main() -> Result<()> {
@@ -55,5 +57,7 @@ fn main() -> Result<()> {
         Command::VerifyNeeded(args) => verify::verify_needed(&args),
         Command::BuildCTests(args) => verify::build_c_tests(&args),
         Command::CSmoke(args) => verify::c_smoke(&args),
+        Command::BuildUpstreamTools(args) => verify::build_upstream_tools(&args),
+        Command::ToolSmoke(args) => verify::tool_smoke(&args),
     }
 }

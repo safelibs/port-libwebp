@@ -47,6 +47,24 @@ extern "C" fn VP8FiltersInitSSE2() {}
 extern "C" fn VP8LDspInitSSE2() {}
 
 #[unsafe(no_mangle)]
+extern "C" fn VP8EncDspInitSSE2() {}
+
+#[unsafe(no_mangle)]
+extern "C" fn VP8EncDspInitSSE41() {}
+
+#[unsafe(no_mangle)]
+extern "C" fn VP8EncDspCostInitSSE2() {}
+
+#[unsafe(no_mangle)]
+extern "C" fn VP8SSIMDspInitSSE2() {}
+
+#[unsafe(no_mangle)]
+extern "C" fn VP8LEncDspInitSSE2() {}
+
+#[unsafe(no_mangle)]
+extern "C" fn VP8LEncDspInitSSE41() {}
+
+#[unsafe(no_mangle)]
 extern "C" fn WebPInitAlphaProcessingSSE2() {}
 
 #[unsafe(no_mangle)]

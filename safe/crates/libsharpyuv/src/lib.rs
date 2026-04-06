@@ -1,7 +1,7 @@
 #![no_std]
 
 use webp_abi::{SharpYuvColorSpace, SharpYuvConversionMatrix, SharpYuvMatrixType};
-use webp_core::VP8CPUInfo;
+use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
@@ -11,6 +11,19 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn rust_eh_personality() {}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn WebPSetWorkerInterface(winterface: *const WebPWorkerInterface) -> i32 {
+    webp_core::webp_set_worker_interface(winterface)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn WebPGetWorkerInterface() -> *const WebPWorkerInterface {
+    webp_core::webp_get_worker_interface()
+}
+
+#[unsafe(no_mangle)]
+pub static mut VP8GetCPUInfo: VP8CPUInfo = Some(default_cpu_info);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn SharpYuvGetVersion() -> i32 {

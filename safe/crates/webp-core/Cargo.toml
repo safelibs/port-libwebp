@@ -6,6 +6,7 @@ publish = false
 version.workspace = true
 
 [dependencies]
+c2rust-bitfields.workspace = true
 libc.workspace = true
 webp-abi = { path = "../webp-abi" }
 

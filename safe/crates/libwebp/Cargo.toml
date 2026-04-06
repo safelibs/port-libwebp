@@ -16,6 +16,7 @@ libc.workspace = true
 webp-core = { path = "../webp-core" }
 
 [build-dependencies]
+cc = "1.2.20"
 serde_json.workspace = true
 
 [lints]

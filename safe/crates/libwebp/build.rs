@@ -2,10 +2,83 @@ use serde_json::from_str;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn main() {
+    compile_encoder_support();
+    ensure_sharpyuv_dependency();
     emit_linker_baseline("libwebp", &["-lc", "-lm"]);
+}
+
+fn compile_encoder_support() {
+    let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let original_dir = manifest_dir.join("../../../original");
+    let support_sources = [
+        "src/enc/picture_psnr_enc.c",
+        "src/dsp/cost.c",
+        "src/dsp/enc.c",
+        "src/dsp/lossless_enc.c",
+        "src/dsp/ssim.c",
+        "src/utils/bit_writer_utils.c",
+        "src/utils/huffman_encode_utils.c",
+        "src/utils/quant_levels_utils.c",
+    ];
+
+    let mut build = cc::Build::new();
+    build.include(&original_dir);
+    build.warnings(false);
+
+    for source in support_sources {
+        let path = original_dir.join(source);
+        println!("cargo:rerun-if-changed={}", path.display());
+        build.file(path);
+    }
+
+    build.compile("webp_encoder_support");
+}
+
+fn ensure_sharpyuv_dependency() {
+    let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_manifest = manifest_dir.join("../../Cargo.toml");
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let target_dir = out_dir.join("sharpyuv-target");
+    let profile = env::var("PROFILE").unwrap();
+    let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut build = Command::new(cargo);
+
+    build
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(&workspace_manifest)
+        .arg("--target-dir")
+        .arg(&target_dir)
+        .arg("-p")
+        .arg("libsharpyuv");
+    if profile == "release" {
+        build.arg("--release");
+    } else if profile != "debug" {
+        build.arg("--profile").arg(&profile);
+    }
+
+    let status = build.status().expect("failed to invoke nested cargo build");
+    assert!(status.success(), "nested cargo build for libsharpyuv failed");
+
+    println!(
+        "cargo:rustc-link-search=native={}",
+        profile_output_dir(&target_dir, &profile).display()
+    );
+    println!("cargo:rustc-link-lib=dylib=sharpyuv");
+}
+
+fn profile_output_dir(target_dir: &Path, profile: &str) -> PathBuf {
+    let target = env::var("TARGET").unwrap();
+    let host_dir = target_dir.join(profile);
+    if host_dir.exists() {
+        host_dir
+    } else {
+        target_dir.join(target).join(profile)
+    }
 }
 
 fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {

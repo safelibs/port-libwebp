@@ -5,7 +5,34 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
+    compile_encoder_support();
     emit_linker_baseline("libsharpyuv", &["-lc", "-lm"]);
+}
+
+fn compile_encoder_support() {
+    let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let original_dir = manifest_dir.join("../../../original");
+    let support_sources = [
+        "src/dsp/cost.c",
+        "src/dsp/enc.c",
+        "src/dsp/lossless_enc.c",
+        "src/dsp/ssim.c",
+        "src/utils/bit_writer_utils.c",
+        "src/utils/huffman_encode_utils.c",
+        "src/utils/quant_levels_utils.c",
+    ];
+
+    let mut build = cc::Build::new();
+    build.include(&original_dir);
+    build.warnings(false);
+
+    for source in support_sources {
+        let path = original_dir.join(source);
+        println!("cargo:rerun-if-changed={}", path.display());
+        build.file(path);
+    }
+
+    build.compile("sharpyuv_encoder_support");
 }
 
 fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {

@@ -85,6 +85,25 @@ pub fn capture_relink_manifest(build_dir: &Path) -> Result<RelinkManifest> {
 
 pub fn find_library_artifact(build_dir: &Path, logical_name: &str) -> Result<PathBuf> {
     let prefix = format!("{logical_name}.so");
+    let mut direct_matches = Vec::new();
+    for entry in fs::read_dir(build_dir)
+        .with_context(|| format!("failed to read {}", build_dir.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        if file_name != prefix && !file_name.starts_with(&format!("{prefix}.")) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&path)?;
+        let score = (!metadata.file_type().is_symlink(), file_name == prefix, file_name.len());
+        direct_matches.push((score, path));
+    }
+    direct_matches.sort_by(|left, right| right.0.cmp(&left.0));
+    if let Some((_, path)) = direct_matches.into_iter().next() {
+        return Ok(path);
+    }
+
     let mut matches = Vec::new();
     for entry in WalkDir::new(build_dir).follow_links(false) {
         let entry = entry?;
@@ -97,7 +116,7 @@ pub fn find_library_artifact(build_dir: &Path, logical_name: &str) -> Result<Pat
             let score = (
                 !metadata.file_type().is_symlink(),
                 file_name.len(),
-                entry.depth(),
+                usize::MAX - entry.depth(),
             );
             matches.push((score, entry.into_path()));
         }
@@ -181,7 +200,7 @@ fn parse_readelf_dynamic_symbol_line(line: &str) -> Option<DefinedSymbol> {
     let bind = parts[4];
     let visibility = parts[5];
     let index = parts[6];
-    let name = parts[7];
+    let name = parts[7].split('@').next().unwrap_or(parts[7]);
 
     if index == "UND" || visibility == "HIDDEN" || visibility == "INTERNAL" || name.is_empty() {
         return None;

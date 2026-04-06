@@ -1,6 +1,28 @@
 #![no_std]
 
+use core::ffi::c_void;
 use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
+
+unsafe extern "C" {
+    fn WebPPlaneDistortion(
+        src: *const u8,
+        src_stride: usize,
+        reference: *const u8,
+        ref_stride: usize,
+        width: i32,
+        height: i32,
+        x_step: usize,
+        type_: i32,
+        distortion: *mut f32,
+        result: *mut f32,
+    ) -> i32;
+    fn WebPPictureDistortion(
+        src: *const c_void,
+        reference: *const c_void,
+        metric_type: i32,
+        result: *mut f32,
+    ) -> i32;
+}
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
@@ -49,3 +71,63 @@ static KEEP_WEBP_DEC: unsafe extern "C" fn(
     usize,
     *mut webp_core::decode::webp_dec::WebPDecoderConfig,
 ) -> webp_core::decode::webp_dec::VP8StatusCode = webp_core::decode::webp_dec::WebPDecode;
+
+#[used]
+static KEEP_CONFIG_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::config_enc::WebPConfig,
+    webp_core::encode::config_enc::WebPPreset,
+    f32,
+    i32,
+) -> i32 = webp_core::encode::config_enc::WebPConfigInitInternal;
+
+#[used]
+static KEEP_PICTURE_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::picture_enc::WebPPicture,
+    i32,
+) -> i32 = webp_core::encode::picture_enc::WebPPictureInitInternal;
+
+#[used]
+static KEEP_PICTURE_CSP_ENC: unsafe extern "C" fn(
+    *mut webp_core::encode::picture_csp_enc::WebPPicture,
+    *const u8,
+    i32,
+) -> i32 = webp_core::encode::picture_csp_enc::WebPPictureImportRGBA;
+
+#[used]
+static KEEP_PICTURE_RESCALE_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::picture_rescale_enc::WebPPicture,
+    i32,
+    i32,
+    i32,
+    i32,
+    *mut webp_core::encode::picture_rescale_enc::WebPPicture,
+) -> i32 = webp_core::encode::picture_rescale_enc::WebPPictureView;
+
+#[used]
+static KEEP_PICTURE_TOOLS_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::picture_csp_enc::WebPPicture,
+) -> i32 = webp_core::encode::picture_csp_enc::WebPPictureHasTransparency;
+
+#[used]
+static KEEP_PICTURE_PSNR_ENC: unsafe extern "C" fn(*const c_void, *const c_void, i32, *mut f32) -> i32 =
+    WebPPictureDistortion;
+
+#[used]
+static KEEP_PLANE_PSNR_ENC: unsafe extern "C" fn(
+    *const u8,
+    usize,
+    *const u8,
+    usize,
+    i32,
+    i32,
+    usize,
+    i32,
+    *mut f32,
+    *mut f32,
+) -> i32 = WebPPlaneDistortion;
+
+#[used]
+static KEEP_WEBP_ENC: unsafe extern "C" fn(
+    *const webp_core::encode::webp_enc::WebPConfig,
+    *mut webp_core::encode::webp_enc::WebPPicture,
+) -> i32 = webp_core::encode::webp_enc::WebPEncode;

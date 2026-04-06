@@ -52,6 +52,22 @@ function(add_demux_animdecode_target target_name library_path library_label orac
   set_tests_properties(${target_name} PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${library_dir}")
 endfunction()
 
+function(add_encode_api_target target_name library_path library_label)
+  add_executable(${target_name} encode_api_test.c)
+  target_include_directories(${target_name} PRIVATE "${WEBP_INCLUDE_DIR}")
+  target_compile_definitions(
+    ${target_name}
+    PRIVATE
+      TEST_LIBRARY_NAME="${library_label}"
+  )
+  target_link_libraries(${target_name} PRIVATE "${library_path}" "${CMAKE_DL_LIBS}")
+
+  get_filename_component(library_dir "${library_path}" DIRECTORY)
+  target_link_options(${target_name} PRIVATE "-Wl,-rpath,${library_dir}")
+  add_test(NAME ${target_name} COMMAND ${target_name})
+  set_tests_properties(${target_name} PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${library_dir}")
+endfunction()
+
 if(TEST_SUITE STREQUAL "decode_api" OR TEST_SUITE STREQUAL "all")
   if(EXISTS "${WEBPDECODER_LIBRARY}")
     add_decode_api_target(
@@ -78,6 +94,16 @@ if(TEST_SUITE STREQUAL "demux_animdecode" OR TEST_SUITE STREQUAL "all")
       "${WEBPDEMUX_LIBRARY}"
       "libwebpdemux"
       "${ORACLE_WEBPDEMUX_LIBRARY}"
+    )
+  endif()
+endif()
+
+if(TEST_SUITE STREQUAL "encode_api" OR TEST_SUITE STREQUAL "all")
+  if(EXISTS "${WEBP_LIBRARY}")
+    add_encode_api_target(
+      encode_api_webp
+      "${WEBP_LIBRARY}"
+      "libwebp"
     )
   endif()
 endif()
