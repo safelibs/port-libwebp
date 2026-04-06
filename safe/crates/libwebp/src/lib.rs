@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 use core::ffi::c_void;
 use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
@@ -24,12 +24,14 @@ unsafe extern "C" {
     ) -> i32;
 }
 
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     // SAFETY: aborting is the only valid panic strategy for these no_std cdylibs.
     unsafe { libc::abort() }
 }
 
+#[cfg(not(test))]
 #[unsafe(no_mangle)]
 pub extern "C" fn rust_eh_personality() {}
 
@@ -109,8 +111,12 @@ static KEEP_PICTURE_TOOLS_ENC: unsafe extern "C" fn(
 ) -> i32 = webp_core::encode::picture_csp_enc::WebPPictureHasTransparency;
 
 #[used]
-static KEEP_PICTURE_PSNR_ENC: unsafe extern "C" fn(*const c_void, *const c_void, i32, *mut f32) -> i32 =
-    WebPPictureDistortion;
+static KEEP_PICTURE_PSNR_ENC: unsafe extern "C" fn(
+    *const c_void,
+    *const c_void,
+    i32,
+    *mut f32,
+) -> i32 = WebPPictureDistortion;
 
 #[used]
 static KEEP_PLANE_PSNR_ENC: unsafe extern "C" fn(

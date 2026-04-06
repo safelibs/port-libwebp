@@ -71,6 +71,17 @@ function(add_encode_api_target target_name library_path library_label)
   set_tests_properties(${target_name} PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${library_dir}")
 endfunction()
 
+function(add_runtime_abi_target target_name library_path)
+  add_executable(${target_name} runtime_abi_test.c)
+  target_include_directories(${target_name} PRIVATE "${WEBP_INCLUDE_DIR}")
+  target_link_libraries(${target_name} PRIVATE "${library_path}" "${CMAKE_DL_LIBS}")
+
+  get_filename_component(library_dir "${library_path}" DIRECTORY)
+  target_link_options(${target_name} PRIVATE "-Wl,-rpath,${library_dir}")
+  add_test(NAME ${target_name} COMMAND ${target_name})
+  set_tests_properties(${target_name} PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${library_dir}")
+endfunction()
+
 function(add_upstream_public_api_target target_name source_path include_glue_dir mux_library demux_library webp_library)
   add_executable(${target_name} "${source_path}")
   target_include_directories(${target_name} PRIVATE "${include_glue_dir}")
@@ -125,6 +136,15 @@ if(TEST_SUITE STREQUAL "encode_api" OR TEST_SUITE STREQUAL "all")
       encode_api_webp
       "${WEBP_LIBRARY}"
       "libwebp"
+    )
+  endif()
+endif()
+
+if(TEST_SUITE STREQUAL "runtime_abi" OR TEST_SUITE STREQUAL "all")
+  if(EXISTS "${WEBP_LIBRARY}")
+    add_runtime_abi_target(
+      runtime_abi_webp
+      "${WEBP_LIBRARY}"
     )
   endif()
 endif()

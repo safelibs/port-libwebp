@@ -9,9 +9,10 @@ use clap::{Parser, Subcommand};
 use package::{PackageDebArgs, StageDistArgs};
 use std::path::PathBuf;
 use verify::{
-    BuildCTestsArgs, BuildUpstreamPublicApiTestArgs, BuildUpstreamToolsArgs, CSmokeArgs,
-    ToolSmokeArgs, VerifyInstallTreeArgs, VerifyNeededArgs, VerifySonamesArgs,
-    VerifySymbolSubsetArgs, VerifySymbolsArgs,
+    BuildCTestsArgs, BuildUpstreamFuzzersArgs, BuildUpstreamPublicApiTestArgs,
+    BuildUpstreamToolsArgs, CSmokeArgs, RelinkOriginalObjectsArgs, ToolSmokeArgs, UnsafeAuditArgs,
+    VerifyInstallTreeArgs, VerifyNeededArgs, VerifySonamesArgs, VerifySymbolSubsetArgs,
+    VerifySymbolsArgs,
 };
 
 #[derive(Parser, Debug)]
@@ -40,9 +41,12 @@ enum Command {
     VerifyInstallTree(VerifyInstallTreeArgs),
     BuildCTests(BuildCTestsArgs),
     BuildUpstreamPublicApiTest(BuildUpstreamPublicApiTestArgs),
+    RelinkOriginalObjects(RelinkOriginalObjectsArgs),
     CSmoke(CSmokeArgs),
     BuildUpstreamTools(BuildUpstreamToolsArgs),
+    BuildUpstreamFuzzers(BuildUpstreamFuzzersArgs),
     ToolSmoke(ToolSmokeArgs),
+    UnsafeAudit(UnsafeAuditArgs),
     StageDist(StageDistArgs),
     PackageDeb(PackageDebArgs),
 }
@@ -64,9 +68,12 @@ fn main() -> Result<()> {
         Command::VerifyInstallTree(args) => verify::verify_install_tree(&args),
         Command::BuildCTests(args) => verify::build_c_tests(&args),
         Command::BuildUpstreamPublicApiTest(args) => verify::build_upstream_public_api_test(&args),
+        Command::RelinkOriginalObjects(args) => verify::relink_original_objects(&args),
         Command::CSmoke(args) => verify::c_smoke(&args),
         Command::BuildUpstreamTools(args) => verify::build_upstream_tools(&args),
+        Command::BuildUpstreamFuzzers(args) => verify::build_upstream_fuzzers(&args),
         Command::ToolSmoke(args) => verify::tool_smoke(&args),
+        Command::UnsafeAudit(args) => verify::unsafe_audit(&args),
         Command::StageDist(args) => package::stage_dist(&args),
         Command::PackageDeb(args) => package::package_deb(&args),
     }

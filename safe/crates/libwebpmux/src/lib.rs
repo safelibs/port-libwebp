@@ -1,13 +1,15 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 use core::ffi::c_char;
 use webp_core::mux::{anim_encode, muxedit, muxinternal, muxread};
 
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     unsafe { libc::abort() }
 }
 
+#[cfg(not(test))]
 #[unsafe(no_mangle)]
 pub extern "C" fn rust_eh_personality() {}
 
@@ -172,8 +174,10 @@ static KEEP_ASSEMBLE: unsafe extern "C" fn(
     *mut muxedit::WebPData,
 ) -> muxedit::WebPMuxError = muxedit::WebPMuxAssemble;
 #[used]
-static KEEP_ANIM_OPTIONS_INIT: unsafe extern "C" fn(*mut anim_encode::WebPAnimEncoderOptions, i32) -> i32 =
-    anim_encode::WebPAnimEncoderOptionsInitInternal;
+static KEEP_ANIM_OPTIONS_INIT: unsafe extern "C" fn(
+    *mut anim_encode::WebPAnimEncoderOptions,
+    i32,
+) -> i32 = anim_encode::WebPAnimEncoderOptionsInitInternal;
 #[used]
 static KEEP_ANIM_NEW_INTERNAL: unsafe extern "C" fn(
     i32,

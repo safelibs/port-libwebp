@@ -96,7 +96,11 @@ pub fn find_library_artifact(build_dir: &Path, logical_name: &str) -> Result<Pat
             continue;
         }
         let metadata = fs::symlink_metadata(&path)?;
-        let score = (!metadata.file_type().is_symlink(), file_name == prefix, file_name.len());
+        let score = (
+            !metadata.file_type().is_symlink(),
+            file_name == prefix,
+            file_name.len(),
+        );
         direct_matches.push((score, path));
     }
     direct_matches.sort_by(|left, right| right.0.cmp(&left.0));
@@ -127,6 +131,31 @@ pub fn find_library_artifact(build_dir: &Path, logical_name: &str) -> Result<Pat
         .map(|(_, path)| path)
         .next()
         .with_context(|| format!("failed to find built artifact for {logical_name}"))
+}
+
+pub fn find_static_library_artifact(build_dir: &Path, logical_name: &str) -> Result<PathBuf> {
+    let file_name = format!("{logical_name}.a");
+    let direct = build_dir.join(&file_name);
+    if direct.is_file() {
+        return Ok(direct);
+    }
+
+    let mut matches = Vec::new();
+    for entry in WalkDir::new(build_dir).follow_links(false) {
+        let entry = entry?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if entry.file_name().to_string_lossy() == file_name {
+            matches.push((usize::MAX - entry.depth(), entry.into_path()));
+        }
+    }
+    matches.sort_by(|left, right| right.0.cmp(&left.0));
+    matches
+        .into_iter()
+        .map(|(_, path)| path)
+        .next()
+        .with_context(|| format!("failed to find built static artifact for {logical_name}"))
 }
 
 pub fn inspect_shared_library(path: &Path) -> Result<SharedLibraryInfo> {

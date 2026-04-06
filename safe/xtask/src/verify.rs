@@ -1,6 +1,6 @@
 use crate::link::{
-    capture_defined_symbols, find_library_artifact, inspect_shared_library, DefinedSymbol,
-    RelinkManifest, LIBRARIES, RELINK_TARGETS,
+    capture_defined_symbols, find_library_artifact, find_static_library_artifact,
+    inspect_shared_library, DefinedSymbol, RelinkEntry, RelinkManifest, LIBRARIES, RELINK_TARGETS,
 };
 use crate::package::{
     build_upstream_tools_into, build_workspace_libraries, select_upstream_tools,
@@ -10,12 +10,14 @@ use crate::package::{
 };
 use crate::tools::{
     copy_dir_contents, nonempty_lines, read_json, repo_root, reset_dir, run, sort_dedup,
-    workspace_root,
+    workspace_root, write_text,
 };
 use anyhow::{bail, Context, Result};
 use clap::Args;
+use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
@@ -93,9 +95,27 @@ pub struct BuildUpstreamPublicApiTestArgs {
 }
 
 #[derive(Args, Clone, Debug)]
+pub struct RelinkOriginalObjectsArgs {
+    #[arg(long)]
+    pub manifest: PathBuf,
+    #[arg(long, value_name = "FIXTURE", num_args = 1..)]
+    pub fixtures: Vec<String>,
+    #[arg(long, value_name = "DIR")]
+    pub library_dir: Option<PathBuf>,
+}
+
+#[derive(Args, Clone, Debug)]
 pub struct BuildUpstreamToolsArgs {
     #[arg(long, value_name = "TOOL", num_args = 1..)]
     pub tools: Vec<String>,
+    #[arg(long, value_name = "DIR")]
+    pub safe_prefix: PathBuf,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct BuildUpstreamFuzzersArgs {
+    #[arg(long)]
+    pub source_dir: PathBuf,
     #[arg(long, value_name = "DIR")]
     pub safe_prefix: PathBuf,
 }
@@ -107,6 +127,9 @@ pub struct ToolSmokeArgs {
     #[arg(long, value_name = "TOOL", num_args = 1..)]
     pub tools: Vec<String>,
 }
+
+#[derive(Args, Clone, Debug, Default)]
+pub struct UnsafeAuditArgs {}
 
 #[derive(Clone, Copy)]
 enum ExpectedSymbolKind {
@@ -723,7 +746,10 @@ pub fn build_c_tests(args: &BuildCTestsArgs) -> Result<()> {
     let sample_ppm = repo_root.join("original/examples/test_ref.ppm");
     let need_webpdecoder = matches!(args.suite.as_str(), "decode_api" | "all");
     let need_webpdemux = matches!(args.suite.as_str(), "demux_animdecode" | "all");
-    let need_webp = matches!(args.suite.as_str(), "decode_api" | "encode_api" | "all");
+    let need_webp = matches!(
+        args.suite.as_str(),
+        "decode_api" | "encode_api" | "runtime_abi" | "all"
+    );
 
     let webpdecoder = if need_webpdecoder {
         Some(find_library_artifact(&search_dir, "libwebpdecoder")?)
@@ -844,6 +870,47 @@ pub fn build_upstream_public_api_test(args: &BuildUpstreamPublicApiTestArgs) -> 
     run(&mut build)
 }
 
+pub fn relink_original_objects(args: &RelinkOriginalObjectsArgs) -> Result<()> {
+    let manifest = read_json::<RelinkManifest>(&args.manifest)?;
+    let requested = select_relink_targets(&args.fixtures, &manifest)?;
+    let root = workspace_root();
+    let repo = repo_root()?;
+    let original_dir = repo.join("original");
+    let build_dir = root.join("build/relink-original");
+    let relink_dir = build_dir.join("safe");
+    let search_dir = args
+        .library_dir
+        .clone()
+        .unwrap_or_else(|| root.join("target/release"));
+    let sonames = read_json::<BTreeMap<String, String>>(&root.join("abi/original/sonames.json"))?;
+
+    build_workspace_libraries(&root)?;
+    configure_original_relink_build(&original_dir, &build_dir, &requested)?;
+    let safe_libraries = library_paths_by_soname(&search_dir, &sonames)?;
+    fs::create_dir_all(&relink_dir)
+        .with_context(|| format!("failed to create {}", relink_dir.display()))?;
+
+    for target in requested {
+        let entry = manifest
+            .targets
+            .get(&target)
+            .with_context(|| format!("missing relink manifest entry for {target}"))?;
+
+        let mut build = Command::new("cmake");
+        build
+            .arg("--build")
+            .arg(&build_dir)
+            .arg("--target")
+            .arg(&target);
+        run(&mut build)?;
+
+        let output = relink_fixture(entry, &build_dir, &relink_dir, &safe_libraries)?;
+        ensure_nonempty_file(&output)?;
+    }
+
+    Ok(())
+}
+
 pub fn build_upstream_tools(args: &BuildUpstreamToolsArgs) -> Result<()> {
     let requested = select_upstream_tools(&args.tools)?;
     let root = workspace_root();
@@ -859,6 +926,46 @@ pub fn build_upstream_tools(args: &BuildUpstreamToolsArgs) -> Result<()> {
         &prefix.join("lib"),
         &prefix.join("bin"),
     )
+}
+
+pub fn build_upstream_fuzzers(args: &BuildUpstreamFuzzersArgs) -> Result<()> {
+    let root = workspace_root();
+    let search_dir = root.join("target/release");
+    let build_dir = root.join("build/upstream-fuzzers");
+    let include_glue_dir = build_dir.join("upstream-include");
+    let static_lib_dir = args.safe_prefix.join("lib");
+
+    build_workspace_libraries(&root)?;
+    let native_libs = collect_native_static_libs(
+        &root,
+        &["libwebp", "libwebpmux", "libwebpdemux", "libsharpyuv"],
+    )?;
+    stage_static_fuzzer_prefix(&root.join("include"), &search_dir, &args.safe_prefix)?;
+    reset_dir(&build_dir)?;
+    prepare_upstream_include_glue(&root.join("include"), &include_glue_dir)?;
+
+    for source in select_fuzzer_sources(&args.source_dir)? {
+        build_single_upstream_fuzzer(
+            &source,
+            &include_glue_dir,
+            &static_lib_dir,
+            &build_dir,
+            &native_libs,
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn unsafe_audit(_args: &UnsafeAuditArgs) -> Result<()> {
+    let root = workspace_root();
+    let files = collect_unsafe_files(&root)?;
+    let report = render_unsafe_audit(&root, &files);
+    let docs_dir = root.join("docs");
+    fs::create_dir_all(&docs_dir)
+        .with_context(|| format!("failed to create {}", docs_dir.display()))?;
+    write_text(&docs_dir.join("unsafe-audit.md"), &report)?;
+    Ok(())
 }
 
 pub fn tool_smoke(args: &ToolSmokeArgs) -> Result<()> {
@@ -1144,6 +1251,566 @@ fn ensure_nonempty_file(path: &Path) -> Result<()> {
         bail!("expected non-empty output file at {}", path.display());
     }
     Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum UnsafeCategory {
+    ExportShims,
+    RuntimeGlobals,
+    AbiTypes,
+    CoreTransliteration,
+    RegressionTests,
+}
+
+impl UnsafeCategory {
+    fn title(self) -> &'static str {
+        match self {
+            Self::ExportShims => "Exported ABI Shims",
+            Self::RuntimeGlobals => "Runtime Globals And Scaffolding",
+            Self::AbiTypes => "ABI Type Definitions",
+            Self::CoreTransliteration => "Transliterated Codec Core",
+            Self::RegressionTests => "Regression Tests",
+        }
+    }
+
+    fn note(self) -> &'static str {
+        match self {
+            Self::ExportShims => {
+                "No-mangle entry points, panic abort handlers, and exported global-object symbols."
+            }
+            Self::RuntimeGlobals => {
+                "Global allocator hooks, worker-interface state, CPU callback defaults, and compatibility stubs."
+            }
+            Self::AbiTypes => "FFI-safe type aliases and callback signatures shared with C callers.",
+            Self::CoreTransliteration => {
+                "Upstream-compatible transliterations that still operate on C layouts and raw pointers."
+            }
+            Self::RegressionTests => {
+                "Intentional test-only calls into unsafe C ABI entry points and zeroed layouts."
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct UnsafeFile {
+    category: UnsafeCategory,
+    occurrences: usize,
+    lines: Vec<usize>,
+    path: PathBuf,
+}
+
+fn select_relink_targets(fixtures: &[String], manifest: &RelinkManifest) -> Result<Vec<String>> {
+    let allowed = manifest.targets.keys().cloned().collect::<BTreeSet<_>>();
+    let mut selected = fixtures
+        .iter()
+        .map(|fixture| {
+            if !allowed.contains(fixture) {
+                bail!("unknown relink fixture `{fixture}`");
+            }
+            Ok(fixture.clone())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    sort_dedup(&mut selected);
+    Ok(selected)
+}
+
+fn configure_original_relink_build(
+    original_dir: &Path,
+    build_dir: &Path,
+    requested: &[String],
+) -> Result<()> {
+    let needs_mux = requested.iter().any(|target| {
+        matches!(
+            target.as_str(),
+            "img2webp" | "webpmux" | "webp_public_api_test"
+        )
+    });
+    let needs_public_api = requested
+        .iter()
+        .any(|target| target == "webp_public_api_test");
+
+    reset_dir(build_dir)?;
+
+    let mut configure = Command::new("cmake");
+    configure
+        .arg("-S")
+        .arg(original_dir)
+        .arg("-B")
+        .arg(build_dir)
+        .arg("-DBUILD_SHARED_LIBS=ON")
+        .arg("-DWEBP_BUILD_ANIM_UTILS=OFF")
+        .arg("-DWEBP_BUILD_EXTRAS=OFF")
+        .arg("-DWEBP_BUILD_GIF2WEBP=OFF")
+        .arg("-DWEBP_BUILD_VWEBP=OFF")
+        .arg(format!(
+            "-DWEBP_BUILD_CWEBP={}",
+            on_off(requested.iter().any(|target| target == "cwebp"))
+        ))
+        .arg(format!(
+            "-DWEBP_BUILD_DWEBP={}",
+            on_off(requested.iter().any(|target| target == "dwebp"))
+        ))
+        .arg(format!(
+            "-DWEBP_BUILD_IMG2WEBP={}",
+            on_off(requested.iter().any(|target| target == "img2webp"))
+        ))
+        .arg(format!(
+            "-DWEBP_BUILD_WEBPINFO={}",
+            on_off(requested.iter().any(|target| target == "webpinfo"))
+        ))
+        .arg(format!(
+            "-DWEBP_BUILD_WEBPMUX={}",
+            on_off(requested.iter().any(|target| target == "webpmux"))
+        ))
+        .arg(format!("-DWEBP_BUILD_LIBWEBPMUX={}", on_off(needs_mux)))
+        .arg(format!("-DBUILD_TESTING={}", on_off(needs_public_api)));
+    run(&mut configure)
+}
+
+fn on_off(value: bool) -> &'static str {
+    if value {
+        "ON"
+    } else {
+        "OFF"
+    }
+}
+
+fn library_paths_by_soname(
+    search_dir: &Path,
+    sonames: &BTreeMap<String, String>,
+) -> Result<BTreeMap<String, PathBuf>> {
+    let mut libraries = BTreeMap::new();
+    for logical_name in LIBRARIES {
+        let soname = sonames
+            .get(*logical_name)
+            .with_context(|| format!("missing SONAME baseline for {logical_name}"))?;
+        let path = find_library_artifact(search_dir, logical_name)?;
+        libraries.insert(soname.clone(), path.clone());
+        libraries.insert(format!("{logical_name}.so"), path);
+    }
+    Ok(libraries)
+}
+
+fn relink_fixture(
+    entry: &RelinkEntry,
+    build_dir: &Path,
+    relink_dir: &Path,
+    safe_libraries: &BTreeMap<String, PathBuf>,
+) -> Result<PathBuf> {
+    let safe_lib_dir = safe_libraries
+        .values()
+        .next()
+        .and_then(|path| path.parent())
+        .context("failed to determine the safe library directory")?;
+    let mut parts = entry.link_line.split_whitespace();
+    let program = parts.next().context("empty relink command")?;
+    let output_path = relink_dir.join(link_output_name(&entry.link_line)?);
+    let mut command = Command::new(program);
+    let mut replace_output = false;
+
+    command.current_dir(relink_work_dir(build_dir, &entry.link_txt)?);
+    for part in parts {
+        if replace_output {
+            command.arg(&output_path);
+            replace_output = false;
+            continue;
+        }
+        if part == "-o" {
+            command.arg(part);
+            replace_output = true;
+            continue;
+        }
+        command.arg(rewrite_relink_arg(part, safe_lib_dir, safe_libraries));
+    }
+    run(&mut command)?;
+    Ok(output_path)
+}
+
+fn relink_work_dir(build_dir: &Path, link_txt: &str) -> Result<PathBuf> {
+    let link_path = build_dir.join(link_txt);
+    link_path
+        .parent()
+        .and_then(Path::parent)
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .with_context(|| {
+            format!(
+                "failed to determine relink work dir for {}",
+                link_path.display()
+            )
+        })
+}
+
+fn link_output_name(link_line: &str) -> Result<&str> {
+    let mut parts = link_line.split_whitespace();
+    while let Some(part) = parts.next() {
+        if part == "-o" {
+            return parts.next().context("missing `-o` value in relink command");
+        }
+    }
+    bail!("missing `-o` in relink command")
+}
+
+fn rewrite_relink_arg(
+    arg: &str,
+    safe_lib_dir: &Path,
+    safe_libraries: &BTreeMap<String, PathBuf>,
+) -> String {
+    let rewritten = arg.replace("$BUILD_DIR", safe_lib_dir.to_string_lossy().as_ref());
+    let Some(file_name) = Path::new(&rewritten)
+        .file_name()
+        .and_then(|name| name.to_str())
+    else {
+        return rewritten;
+    };
+    if let Some(path) = safe_libraries.get(file_name) {
+        return path.display().to_string();
+    }
+    safe_libraries
+        .iter()
+        .filter(|(candidate, _)| file_name.starts_with(candidate.as_str()))
+        .max_by_key(|(candidate, _)| candidate.len())
+        .map(|(_, path)| path.display().to_string())
+        .unwrap_or(rewritten)
+}
+
+fn stage_static_fuzzer_prefix(include_dir: &Path, search_dir: &Path, prefix: &Path) -> Result<()> {
+    let include_dest = prefix.join("include");
+    let lib_dest = prefix.join("lib");
+
+    fs::create_dir_all(&include_dest)
+        .with_context(|| format!("failed to create {}", include_dest.display()))?;
+    fs::create_dir_all(&lib_dest)
+        .with_context(|| format!("failed to create {}", lib_dest.display()))?;
+    copy_dir_contents(include_dir, &include_dest)?;
+
+    for logical_name in LIBRARIES {
+        let artifact = find_static_library_artifact(search_dir, logical_name)?;
+        let destination = lib_dest.join(
+            artifact
+                .file_name()
+                .with_context(|| format!("missing file name for {}", artifact.display()))?,
+        );
+        fs::copy(&artifact, &destination).with_context(|| {
+            format!(
+                "failed to copy static library {} to {}",
+                artifact.display(),
+                destination.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn collect_native_static_libs(root: &Path, packages: &[&str]) -> Result<Vec<String>> {
+    let manifest_path = root.join("Cargo.toml");
+    let mut libraries = Vec::new();
+
+    for package in packages {
+        let output = Command::new("cargo")
+            .arg("rustc")
+            .arg("--quiet")
+            .arg("--manifest-path")
+            .arg(&manifest_path)
+            .arg("-p")
+            .arg(package)
+            .arg("--release")
+            .arg("--")
+            .arg("--print")
+            .arg("native-static-libs")
+            .env("RUSTFLAGS", "-Awarnings")
+            .output()
+            .with_context(|| format!("failed to query native static libs for {package}"))?;
+        if !output.status.success() {
+            bail!(
+                "native static lib query for {package} failed with status {}:\nstdout:\n{}\nstderr:\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        let combined = format!(
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let Some(line) = combined
+            .lines()
+            .find(|line| line.contains("native-static-libs:"))
+        else {
+            bail!("cargo did not report native static libs for {package}");
+        };
+        if let Some((_, values)) = line.split_once("native-static-libs:") {
+            libraries.extend(values.split_whitespace().map(ToOwned::to_owned));
+        }
+    }
+
+    sort_dedup(&mut libraries);
+    libraries.retain(|library| {
+        !matches!(
+            library.as_str(),
+            "-lsharpyuv" | "-lwebp" | "-lwebpdecoder" | "-lwebpdemux" | "-lwebpmux"
+        )
+    });
+    Ok(libraries)
+}
+
+fn select_fuzzer_sources(source_dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut sources = fs::read_dir(source_dir)
+        .with_context(|| format!("failed to read {}", source_dir.display()))?
+        .map(|entry| entry.map(|entry| entry.path()))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("failed to enumerate {}", source_dir.display()))?
+        .into_iter()
+        .filter(|path| {
+            matches!(
+                path.extension().and_then(|extension| extension.to_str()),
+                Some("c" | "cc")
+            )
+        })
+        .collect::<Vec<_>>();
+    sources.sort();
+    Ok(sources)
+}
+
+fn build_single_upstream_fuzzer(
+    source: &Path,
+    include_glue_dir: &Path,
+    static_lib_dir: &Path,
+    build_dir: &Path,
+    native_libs: &[String],
+) -> Result<()> {
+    let extension = source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .with_context(|| format!("missing extension for {}", source.display()))?;
+    let compiler = match extension {
+        "c" => "clang",
+        "cc" => "clang++",
+        other => bail!("unsupported fuzzer source extension `{other}`"),
+    };
+    let output = build_dir.join(
+        source
+            .file_stem()
+            .with_context(|| format!("missing file stem for {}", source.display()))?,
+    );
+
+    let mut compile = Command::new(compiler);
+    compile
+        .arg(if extension == "cc" {
+            "-std=c++17"
+        } else {
+            "-std=c11"
+        })
+        .arg("-fsanitize=fuzzer")
+        .arg("-Wall")
+        .arg("-Wextra")
+        .arg("-Wl,--allow-multiple-definition")
+        .arg(format!("-I{}", include_glue_dir.display()))
+        .arg(source)
+        .arg(static_lib_dir.join("libwebpmux.a"))
+        .arg(static_lib_dir.join("libwebpdemux.a"))
+        .arg(static_lib_dir.join("libwebp.a"))
+        .arg(static_lib_dir.join("libsharpyuv.a"));
+    for library in native_libs {
+        compile.arg(library);
+    }
+    compile.arg("-o").arg(&output);
+    run(&mut compile)?;
+    ensure_nonempty_file(&output)
+}
+
+fn collect_unsafe_files(root: &Path) -> Result<Vec<UnsafeFile>> {
+    let regex = Regex::new(r"\bunsafe(?:\s+extern|\s+fn|\s+impl|\s+trait|\s*\{|\s*\()")
+        .expect("static unsafe regex should compile");
+    let mut files = Vec::new();
+
+    for entry in walkdir::WalkDir::new(root) {
+        let entry = entry?;
+        let path = entry.path();
+        if !entry.file_type().is_file()
+            || path.extension().and_then(|extension| extension.to_str()) != Some("rs")
+            || skip_audit_path(path.strip_prefix(root).unwrap_or(path))
+        {
+            continue;
+        }
+
+        let relative = path
+            .strip_prefix(root)
+            .with_context(|| format!("failed to relativize {}", path.display()))?
+            .to_path_buf();
+        let contents = fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        let occurrences = regex.find_iter(&contents).count();
+        if occurrences == 0 {
+            continue;
+        }
+        let category = categorize_unsafe_path(&relative).with_context(|| {
+            format!(
+                "unsafe found outside the final allowlist: {}",
+                relative.display()
+            )
+        })?;
+        let lines = contents
+            .lines()
+            .enumerate()
+            .filter_map(|(index, line)| regex.is_match(line).then_some(index + 1))
+            .collect::<Vec<_>>();
+
+        files.push(UnsafeFile {
+            category,
+            occurrences,
+            lines,
+            path: relative,
+        });
+    }
+
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(files)
+}
+
+fn skip_audit_path(path: &Path) -> bool {
+    path.components().any(|component| {
+        matches!(
+            component,
+            Component::Normal(name)
+                if name == "target" || name == "build" || name == "dist" || name == "docs"
+        )
+    })
+}
+
+fn categorize_unsafe_path(path: &Path) -> Option<UnsafeCategory> {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    let export_shims = [
+        "crates/libsharpyuv/src/lib.rs",
+        "crates/libwebp/src/lib.rs",
+        "crates/libwebpdecoder/src/lib.rs",
+        "crates/libwebpdemux/src/lib.rs",
+        "crates/libwebpmux/src/lib.rs",
+    ];
+    let runtime_globals = [
+        "crates/webp-core/src/alloc.rs",
+        "crates/webp-core/src/compat.rs",
+        "crates/webp-core/src/cpu.rs",
+        "crates/webp-core/src/lib.rs",
+        "crates/webp-core/src/threading.rs",
+    ];
+
+    if export_shims
+        .iter()
+        .any(|candidate| *candidate == normalized)
+    {
+        return Some(UnsafeCategory::ExportShims);
+    }
+    if runtime_globals
+        .iter()
+        .any(|candidate| *candidate == normalized)
+    {
+        return Some(UnsafeCategory::RuntimeGlobals);
+    }
+    if normalized.starts_with("crates/webp-abi/src/") {
+        return Some(UnsafeCategory::AbiTypes);
+    }
+    if normalized.starts_with("crates/webp-core/tests/")
+        || normalized.starts_with("crates/webp-abi/tests/")
+    {
+        return Some(UnsafeCategory::RegressionTests);
+    }
+    if [
+        "crates/webp-core/src/decode/",
+        "crates/webp-core/src/demux/",
+        "crates/webp-core/src/dsp/",
+        "crates/webp-core/src/encode/",
+        "crates/webp-core/src/mux/",
+        "crates/webp-core/src/sharpyuv/",
+        "crates/webp-core/src/utils/",
+    ]
+    .iter()
+    .any(|prefix| normalized.starts_with(prefix))
+    {
+        return Some(UnsafeCategory::CoreTransliteration);
+    }
+    None
+}
+
+fn render_unsafe_audit(root: &Path, files: &[UnsafeFile]) -> String {
+    let total_occurrences = files.iter().map(|file| file.occurrences).sum::<usize>();
+    let mut report = String::new();
+
+    report.push_str("# Unsafe Audit\n\n");
+    report.push_str(&format!(
+        "Generated by `cargo run -p xtask --manifest-path {}/Cargo.toml -- unsafe-audit`.\n\n",
+        root.display()
+    ));
+    report.push_str(
+        "This audit keeps repo-owned Rust glue outside the final allowlist free of `unsafe`. ",
+    );
+    report.push_str(
+        "The remaining surface is intentionally confined to exported ABI shims, runtime globals, ABI type definitions, transliterated upstream codec modules, and explicit regression tests.\n\n",
+    );
+
+    report.push_str("## Summary\n");
+    report.push_str(&format!("- Files containing `unsafe`: {}\n", files.len()));
+    report.push_str(&format!("- `unsafe` occurrences: {}\n", total_occurrences));
+    report.push_str("- `xtask/`, Debian/package glue, and the new C regression test remain free of Rust `unsafe`.\n\n");
+
+    report.push_str("## Categories\n");
+    for category in [
+        UnsafeCategory::ExportShims,
+        UnsafeCategory::RuntimeGlobals,
+        UnsafeCategory::AbiTypes,
+        UnsafeCategory::CoreTransliteration,
+        UnsafeCategory::RegressionTests,
+    ] {
+        let category_files = files
+            .iter()
+            .filter(|file| file.category == category)
+            .collect::<Vec<_>>();
+        if category_files.is_empty() {
+            continue;
+        }
+        let occurrences = category_files
+            .iter()
+            .map(|file| file.occurrences)
+            .sum::<usize>();
+        report.push_str(&format!(
+            "- {}: {} files / {} occurrences. {}\n",
+            category.title(),
+            category_files.len(),
+            occurrences,
+            category.note()
+        ));
+    }
+
+    report.push_str("\n## Inventory\n");
+    report.push_str("| Path | Category | Count | Lines |\n");
+    report.push_str("| --- | --- | ---: | --- |\n");
+    for file in files {
+        report.push_str(&format!(
+            "| `{}` | {} | {} | {} |\n",
+            file.path.display(),
+            file.category.title(),
+            file.occurrences,
+            format_audit_lines(&file.lines)
+        ));
+    }
+
+    report
+}
+
+fn format_audit_lines(lines: &[usize]) -> String {
+    const MAX_LINES: usize = 12;
+    let mut rendered = lines
+        .iter()
+        .take(MAX_LINES)
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>();
+    if lines.len() > MAX_LINES {
+        rendered.push("...".to_owned());
+    }
+    rendered.join(", ")
 }
 
 fn sharpyuv_runtime_source() -> &'static str {
