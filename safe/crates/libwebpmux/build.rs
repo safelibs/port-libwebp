@@ -46,6 +46,30 @@ fn ensure_webp_dependency() {
     let target_dir = out_dir.join("webp-target");
     let profile = env::var("PROFILE").unwrap();
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+
+    if profile != "release" {
+        let mut seed = Command::new(&cargo);
+        seed.arg("build")
+            .arg("--manifest-path")
+            .arg(&workspace_manifest)
+            .arg("--target-dir")
+            .arg(&target_dir)
+            .arg("-p")
+            .arg("webp-core")
+            .arg("--lib")
+            .arg("--no-default-features")
+            .arg("--features")
+            .arg("decode,encode");
+        if profile != "debug" {
+            seed.arg("--profile").arg(&profile);
+        }
+
+        let status = seed
+            .status()
+            .expect("failed to seed nested cargo build for webp-core");
+        assert!(status.success(), "nested cargo build for webp-core failed");
+    }
+
     let mut build = Command::new(cargo);
 
     build

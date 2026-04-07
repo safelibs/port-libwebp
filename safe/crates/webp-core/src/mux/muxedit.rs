@@ -38,10 +38,7 @@ extern "C" {
         copy_data: ::core::ffi::c_int,
         tag: uint32_t,
     ) -> WebPMuxError;
-    fn ChunkSetHead(
-        chunk: *mut WebPChunk,
-        chunk_list: *mut *mut WebPChunk,
-    ) -> WebPMuxError;
+    fn ChunkSetHead(chunk: *mut WebPChunk, chunk_list: *mut *mut WebPChunk) -> WebPMuxError;
     fn ChunkRelease(chunk: *mut WebPChunk) -> *mut WebPChunk;
     fn ChunkDelete(chunk: *mut WebPChunk) -> *mut WebPChunk;
     fn ChunkListDelete(chunk_list: *mut *mut WebPChunk);
@@ -50,19 +47,10 @@ extern "C" {
     fn MuxImageInit(wpi: *mut WebPMuxImage);
     fn MuxImageRelease(wpi: *mut WebPMuxImage) -> *mut WebPMuxImage;
     fn MuxImageDelete(wpi: *mut WebPMuxImage) -> *mut WebPMuxImage;
-    fn MuxImageCount(
-        wpi_list: *const WebPMuxImage,
-        id: WebPChunkId,
-    ) -> ::core::ffi::c_int;
+    fn MuxImageCount(wpi_list: *const WebPMuxImage, id: WebPChunkId) -> ::core::ffi::c_int;
     fn MuxImageFinalize(wpi: *mut WebPMuxImage) -> ::core::ffi::c_int;
-    fn MuxImagePush(
-        wpi: *const WebPMuxImage,
-        wpi_list: *mut *mut WebPMuxImage,
-    ) -> WebPMuxError;
-    fn MuxImageDeleteNth(
-        wpi_list: *mut *mut WebPMuxImage,
-        nth: uint32_t,
-    ) -> WebPMuxError;
+    fn MuxImagePush(wpi: *const WebPMuxImage, wpi_list: *mut *mut WebPMuxImage) -> WebPMuxError;
+    fn MuxImageDeleteNth(wpi_list: *mut *mut WebPMuxImage, nth: uint32_t) -> WebPMuxError;
     fn MuxImageGetNth(
         wpi_list: *mut *const WebPMuxImage,
         nth: uint32_t,
@@ -72,10 +60,7 @@ extern "C" {
     fn MuxImageEmit(wpi: *const WebPMuxImage, dst: *mut uint8_t) -> *mut uint8_t;
     fn MuxHasAlpha(images: *const WebPMuxImage) -> ::core::ffi::c_int;
     fn MuxEmitRiffHeader(data: *mut uint8_t, size: size_t) -> *mut uint8_t;
-    fn MuxGetChunkListFromId(
-        mux: *const WebPMux,
-        id: WebPChunkId,
-    ) -> *mut *mut WebPChunk;
+    fn MuxGetChunkListFromId(mux: *const WebPMux, id: WebPChunkId) -> *mut *mut WebPChunk;
     fn MuxValidate(mux: *const WebPMux) -> WebPMuxError;
     fn WebPSafeMalloc(nmemb: uint64_t, size: size_t) -> *mut ::core::ffi::c_void;
     fn WebPSafeFree(ptr: *mut ::core::ffi::c_void);
@@ -197,25 +182,22 @@ pub struct ChunkInfo {
     pub id: WebPChunkId,
     pub size: uint32_t,
 }
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<
-    ::core::ffi::c_void,
->();
+pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const TAG_SIZE: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
 pub const CHUNK_HEADER_SIZE: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
 pub const RIFF_HEADER_SIZE: ::core::ffi::c_int = 12 as ::core::ffi::c_int;
 pub const ANMF_CHUNK_SIZE: ::core::ffi::c_int = 16 as ::core::ffi::c_int;
 pub const ANIM_CHUNK_SIZE: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
 pub const VP8X_CHUNK_SIZE: ::core::ffi::c_int = 10 as ::core::ffi::c_int;
-pub const MAX_CANVAS_SIZE: ::core::ffi::c_int = (1 as ::core::ffi::c_int)
-    << 24 as ::core::ffi::c_int;
-pub const MAX_IMAGE_AREA: ::core::ffi::c_ulonglong = (1 as ::core::ffi::c_ulonglong)
-    << 32 as ::core::ffi::c_int;
-pub const MAX_LOOP_COUNT: ::core::ffi::c_int = (1 as ::core::ffi::c_int)
-    << 16 as ::core::ffi::c_int;
-pub const MAX_DURATION: ::core::ffi::c_int = (1 as ::core::ffi::c_int)
-    << 24 as ::core::ffi::c_int;
-pub const MAX_POSITION_OFFSET: ::core::ffi::c_int = (1 as ::core::ffi::c_int)
-    << 24 as ::core::ffi::c_int;
+pub const MAX_CANVAS_SIZE: ::core::ffi::c_int =
+    (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int;
+pub const MAX_IMAGE_AREA: ::core::ffi::c_ulonglong =
+    (1 as ::core::ffi::c_ulonglong) << 32 as ::core::ffi::c_int;
+pub const MAX_LOOP_COUNT: ::core::ffi::c_int =
+    (1 as ::core::ffi::c_int) << 16 as ::core::ffi::c_int;
+pub const MAX_DURATION: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int;
+pub const MAX_POSITION_OFFSET: ::core::ffi::c_int =
+    (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int;
 pub const MAX_CHUNK_PAYLOAD: ::core::ffi::c_uint = (!(0 as ::core::ffi::c_uint))
     .wrapping_sub(CHUNK_HEADER_SIZE as ::core::ffi::c_uint)
     .wrapping_sub(1 as ::core::ffi::c_uint);
@@ -267,39 +249,39 @@ unsafe extern "C" fn GetLE24(data: *const uint8_t) -> ::core::ffi::c_int {
 #[inline]
 unsafe extern "C" fn PutLE16(data: *mut uint8_t, mut val: ::core::ffi::c_int) {
     '_c2rust_label: {
-        if val < (1 as ::core::ffi::c_int) << 16 as ::core::ffi::c_int {} else {
+        if val < (1 as ::core::ffi::c_int) << 16 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"val < (1 << 16)\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h\0"
-                    as *const u8 as *const ::core::ffi::c_char,
-                108 as ::core::ffi::c_uint,
-                b"void PutLE16(uint8_t *const, int)\0" as *const u8
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h\0" as *const u8
                     as *const ::core::ffi::c_char,
+                108 as ::core::ffi::c_uint,
+                b"void PutLE16(uint8_t *const, int)\0" as *const u8 as *const ::core::ffi::c_char,
             );
         }
     };
-    *data.offset(0 as ::core::ffi::c_int as isize) = (val >> 0 as ::core::ffi::c_int
-        & 0xff as ::core::ffi::c_int) as uint8_t;
-    *data.offset(1 as ::core::ffi::c_int as isize) = (val >> 8 as ::core::ffi::c_int
-        & 0xff as ::core::ffi::c_int) as uint8_t;
+    *data.offset(0 as ::core::ffi::c_int as isize) =
+        (val >> 0 as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) as uint8_t;
+    *data.offset(1 as ::core::ffi::c_int as isize) =
+        (val >> 8 as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) as uint8_t;
 }
 #[inline]
 unsafe extern "C" fn PutLE24(data: *mut uint8_t, mut val: ::core::ffi::c_int) {
     '_c2rust_label: {
-        if val < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int {} else {
+        if val < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"val < (1 << 24)\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h\0"
-                    as *const u8 as *const ::core::ffi::c_char,
-                114 as ::core::ffi::c_uint,
-                b"void PutLE24(uint8_t *const, int)\0" as *const u8
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h\0" as *const u8
                     as *const ::core::ffi::c_char,
+                114 as ::core::ffi::c_uint,
+                b"void PutLE24(uint8_t *const, int)\0" as *const u8 as *const ::core::ffi::c_char,
             );
         }
     };
     PutLE16(data, val & 0xffff as ::core::ffi::c_int);
-    *data.offset(2 as ::core::ffi::c_int as isize) = (val >> 16 as ::core::ffi::c_int
-        & 0xff as ::core::ffi::c_int) as uint8_t;
+    *data.offset(2 as ::core::ffi::c_int as isize) =
+        (val >> 16 as ::core::ffi::c_int & 0xff as ::core::ffi::c_int) as uint8_t;
 }
 #[inline]
 unsafe extern "C" fn PutLE32(data: *mut uint8_t, mut val: uint32_t) {
@@ -311,14 +293,14 @@ unsafe extern "C" fn PutLE32(data: *mut uint8_t, mut val: uint32_t) {
 }
 unsafe extern "C" fn MuxInit(mux: *mut WebPMux) {
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
-                23 as ::core::ffi::c_uint,
-                b"void MuxInit(WebPMux *const)\0" as *const u8
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
                     as *const ::core::ffi::c_char,
+                23 as ::core::ffi::c_uint,
+                b"void MuxInit(WebPMux *const)\0" as *const u8 as *const ::core::ffi::c_char,
             );
         }
     };
@@ -331,18 +313,14 @@ unsafe extern "C" fn MuxInit(mux: *mut WebPMux) {
     (*mux).canvas_height_ = 0 as ::core::ffi::c_int;
 }
 #[no_mangle]
-pub unsafe extern "C" fn WebPNewInternal(
-    mut version: ::core::ffi::c_int,
-) -> *mut WebPMux {
-    if version >> 8 as ::core::ffi::c_int
-        != 0x108 as ::core::ffi::c_int >> 8 as ::core::ffi::c_int
+pub unsafe extern "C" fn WebPNewInternal(mut version: ::core::ffi::c_int) -> *mut WebPMux {
+    if version >> 8 as ::core::ffi::c_int != 0x108 as ::core::ffi::c_int >> 8 as ::core::ffi::c_int
     {
-        return ::core::ptr::null_mut::<WebPMux>()
+        return ::core::ptr::null_mut::<WebPMux>();
     } else {
-        let mux: *mut WebPMux = WebPSafeMalloc(
-            1 as uint64_t,
-            ::core::mem::size_of::<WebPMux>() as size_t,
-        ) as *mut WebPMux;
+        let mux: *mut WebPMux =
+            WebPSafeMalloc(1 as uint64_t, ::core::mem::size_of::<WebPMux>() as size_t)
+                as *mut WebPMux;
         if !mux.is_null() {
             MuxInit(mux);
         }
@@ -356,14 +334,14 @@ unsafe extern "C" fn DeleteAllImages(wpi_list: *mut *mut WebPMuxImage) {
 }
 unsafe extern "C" fn MuxRelease(mux: *mut WebPMux) {
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
-                47 as ::core::ffi::c_uint,
-                b"void MuxRelease(WebPMux *const)\0" as *const u8
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
                     as *const ::core::ffi::c_char,
+                47 as ::core::ffi::c_uint,
+                b"void MuxRelease(WebPMux *const)\0" as *const u8 as *const ::core::ffi::c_char,
             );
         }
     };
@@ -400,11 +378,12 @@ unsafe extern "C" fn MuxSet(
     let mut err: WebPMuxError = WEBP_MUX_NOT_FOUND;
     let idx: CHUNK_INDEX = ChunkGetIndexFromTag(tag) as CHUNK_INDEX;
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 83 as ::core::ffi::c_uint,
                 b"WebPMuxError MuxSet(WebPMux *const, uint32_t, const WebPData *const, int)\0"
                     as *const u8 as *const ::core::ffi::c_char,
@@ -412,11 +391,12 @@ unsafe extern "C" fn MuxSet(
         }
     };
     '_c2rust_label_0: {
-        if IsWPI(kChunks[idx as usize].id) == 0 {} else {
+        if IsWPI(kChunks[idx as usize].id) == 0 {
+        } else {
             __assert_fail(
                 b"!IsWPI(kChunks[idx].id)\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 84 as ::core::ffi::c_uint,
                 b"WebPMuxError MuxSet(WebPMux *const, uint32_t, const WebPData *const, int)\0"
                     as *const u8 as *const ::core::ffi::c_char,
@@ -424,9 +404,7 @@ unsafe extern "C" fn MuxSet(
         }
     };
     ChunkInit(&raw mut chunk);
-    if idx as ::core::ffi::c_uint
-        == IDX_VP8X as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_VP8X as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).vp8x_);
@@ -436,9 +414,7 @@ unsafe extern "C" fn MuxSet(
         }
         return err;
     }
-    if idx as ::core::ffi::c_uint
-        == IDX_ICCP as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_ICCP as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).iccp_);
@@ -448,9 +424,7 @@ unsafe extern "C" fn MuxSet(
         }
         return err;
     }
-    if idx as ::core::ffi::c_uint
-        == IDX_ANIM as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_ANIM as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).anim_);
@@ -460,9 +434,7 @@ unsafe extern "C" fn MuxSet(
         }
         return err;
     }
-    if idx as ::core::ffi::c_uint
-        == IDX_EXIF as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_EXIF as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).exif_);
@@ -472,8 +444,7 @@ unsafe extern "C" fn MuxSet(
         }
         return err;
     }
-    if idx as ::core::ffi::c_uint == IDX_XMP as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_XMP as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).xmp_);
@@ -483,9 +454,7 @@ unsafe extern "C" fn MuxSet(
         }
         return err;
     }
-    if idx as ::core::ffi::c_uint
-        == IDX_UNKNOWN as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
+    if idx as ::core::ffi::c_uint == IDX_UNKNOWN as ::core::ffi::c_int as ::core::ffi::c_uint {
         err = ChunkAssignData(&raw mut chunk, data, copy_data, tag);
         if err as ::core::ffi::c_int == WEBP_MUX_OK as ::core::ffi::c_int {
             err = ChunkSetHead(&raw mut chunk, &raw mut (*mux).unknown_);
@@ -504,12 +473,13 @@ unsafe extern "C" fn CreateFrameData(
     frame: *mut WebPData,
 ) -> WebPMuxError {
     let mut frame_bytes: *mut uint8_t = ::core::ptr::null_mut::<uint8_t>();
-    let frame_size: size_t = kChunks[IDX_ANMF as ::core::ffi::c_int as usize].size
-        as size_t;
+    let frame_size: size_t = kChunks[IDX_ANMF as ::core::ffi::c_int as usize].size as size_t;
     '_c2rust_label: {
-        if width > 0 as ::core::ffi::c_int && height > 0 as ::core::ffi::c_int
+        if width > 0 as ::core::ffi::c_int
+            && height > 0 as ::core::ffi::c_int
             && (*info).duration >= 0 as ::core::ffi::c_int
-        {} else {
+        {
+        } else {
             __assert_fail(
                 b"width > 0 && height > 0 && info->duration >= 0\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -524,7 +494,8 @@ unsafe extern "C" fn CreateFrameData(
     '_c2rust_label_0: {
         if (*info).dispose_method as ::core::ffi::c_uint
             == (*info).dispose_method as ::core::ffi::c_uint & 1 as ::core::ffi::c_uint
-        {} else {
+        {
+        } else {
             __assert_fail(
                 b"info->dispose_method == (info->dispose_method & 1)\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -556,16 +527,18 @@ unsafe extern "C" fn CreateFrameData(
         frame_bytes.offset(9 as ::core::ffi::c_int as isize),
         height - 1 as ::core::ffi::c_int,
     );
-    PutLE24(frame_bytes.offset(12 as ::core::ffi::c_int as isize), (*info).duration);
-    *frame_bytes.offset(15 as ::core::ffi::c_int as isize) = ((if (*info).blend_method
-        as ::core::ffi::c_uint
-        == WEBP_MUX_NO_BLEND as ::core::ffi::c_int as ::core::ffi::c_uint
-    {
-        2 as ::core::ffi::c_int
-    } else {
-        0 as ::core::ffi::c_int
-    })
-        | (if (*info).dispose_method as ::core::ffi::c_uint
+    PutLE24(
+        frame_bytes.offset(12 as ::core::ffi::c_int as isize),
+        (*info).duration,
+    );
+    *frame_bytes.offset(15 as ::core::ffi::c_int as isize) =
+        ((if (*info).blend_method as ::core::ffi::c_uint
+            == WEBP_MUX_NO_BLEND as ::core::ffi::c_int as ::core::ffi::c_uint
+        {
+            2 as ::core::ffi::c_int
+        } else {
+            0 as ::core::ffi::c_int
+        }) | (if (*info).dispose_method as ::core::ffi::c_uint
             == WEBP_MUX_DISPOSE_BACKGROUND as ::core::ffi::c_int as ::core::ffi::c_uint
         {
             1 as ::core::ffi::c_int
@@ -586,22 +559,21 @@ unsafe extern "C" fn GetImageData(
     if (*bitstream).size < TAG_SIZE as size_t
         || memcmp(
             (*bitstream).bytes as *const ::core::ffi::c_void,
-            b"RIFF\0" as *const u8 as *const ::core::ffi::c_char
-                as *const ::core::ffi::c_void,
+            b"RIFF\0" as *const u8 as *const ::core::ffi::c_char as *const ::core::ffi::c_void,
             TAG_SIZE as size_t,
         ) != 0
     {
         *image = *bitstream;
     } else {
         let mut wpi: *const WebPMuxImage = ::core::ptr::null::<WebPMuxImage>();
-        let mux: *mut WebPMux = WebPMuxCreate(bitstream, 0 as ::core::ffi::c_int)
-            as *mut WebPMux;
+        let mux: *mut WebPMux = WebPMuxCreate(bitstream, 0 as ::core::ffi::c_int) as *mut WebPMux;
         if mux.is_null() {
             return WEBP_MUX_BAD_DATA;
         }
         wpi = (*mux).images_;
         '_c2rust_label: {
-            if !wpi.is_null() && !(*wpi).img_.is_null() {} else {
+            if !wpi.is_null() && !(*wpi).img_.is_null() {
+            } else {
                 __assert_fail(
                     b"wpi != NULL && wpi->img_ != NULL\0" as *const u8
                         as *const ::core::ffi::c_char,
@@ -628,11 +600,12 @@ unsafe extern "C" fn DeleteChunks(
 ) -> WebPMuxError {
     let mut err: WebPMuxError = WEBP_MUX_NOT_FOUND;
     '_c2rust_label: {
-        if !chunk_list.is_null() {} else {
+        if !chunk_list.is_null() {
+        } else {
             __assert_fail(
                 b"chunk_list\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 156 as ::core::ffi::c_uint,
                 b"WebPMuxError DeleteChunks(WebPChunk **, uint32_t)\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -650,20 +623,18 @@ unsafe extern "C" fn DeleteChunks(
     }
     return err;
 }
-unsafe extern "C" fn MuxDeleteAllNamedData(
-    mux: *mut WebPMux,
-    mut tag: uint32_t,
-) -> WebPMuxError {
+unsafe extern "C" fn MuxDeleteAllNamedData(mux: *mut WebPMux, mut tag: uint32_t) -> WebPMuxError {
     let id: WebPChunkId = ChunkGetIdFromTag(tag) as WebPChunkId;
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 171 as ::core::ffi::c_uint,
-                b"WebPMuxError MuxDeleteAllNamedData(WebPMux *const, uint32_t)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"WebPMuxError MuxDeleteAllNamedData(WebPMux *const, uint32_t)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
@@ -681,7 +652,9 @@ pub unsafe extern "C" fn WebPMuxSetChunk(
 ) -> WebPMuxError {
     let mut tag: uint32_t = 0;
     let mut err: WebPMuxError = WEBP_MUX_NOT_FOUND;
-    if mux.is_null() || fourcc.is_null() || chunk_data.is_null()
+    if mux.is_null()
+        || fourcc.is_null()
+        || chunk_data.is_null()
         || (*chunk_data).bytes.is_null()
         || (*chunk_data).size > MAX_CHUNK_PAYLOAD as size_t
     {
@@ -795,7 +768,9 @@ pub unsafe extern "C" fn WebPMuxSetImage(
         next_: ::core::ptr::null_mut::<WebPMuxImage>(),
     };
     let mut err: WebPMuxError = WEBP_MUX_NOT_FOUND;
-    if mux.is_null() || bitstream.is_null() || (*bitstream).bytes.is_null()
+    if mux.is_null()
+        || bitstream.is_null()
+        || (*bitstream).bytes.is_null()
         || (*bitstream).size > MAX_CHUNK_PAYLOAD as size_t
     {
         return WEBP_MUX_INVALID_ARGUMENT;
@@ -840,9 +815,7 @@ pub unsafe extern "C" fn WebPMuxPushFrame(
     {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    if (*info).bitstream.bytes.is_null()
-        || (*info).bitstream.size > MAX_CHUNK_PAYLOAD as size_t
-    {
+    if (*info).bitstream.bytes.is_null() || (*info).bitstream.size > MAX_CHUNK_PAYLOAD as size_t {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
     if !(*mux).images_.is_null() {
@@ -860,7 +833,8 @@ pub unsafe extern "C" fn WebPMuxPushFrame(
     err = SetAlphaAndImageChunks(&raw const (*info).bitstream, copy_data, &raw mut wpi);
     if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
         '_c2rust_label: {
-            if !wpi.img_.is_null() {} else {
+            if !wpi.img_.is_null() {
+            } else {
                 __assert_fail(
                     b"wpi.img_ != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                     b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -879,7 +853,8 @@ pub unsafe extern "C" fn WebPMuxPushFrame(
         let mut tmp: WebPMuxFrameInfo = *info;
         tmp.x_offset &= !(1 as ::core::ffi::c_int);
         tmp.y_offset &= !(1 as ::core::ffi::c_int);
-        if tmp.x_offset < 0 as ::core::ffi::c_int || tmp.x_offset >= MAX_POSITION_OFFSET
+        if tmp.x_offset < 0 as ::core::ffi::c_int
+            || tmp.x_offset >= MAX_POSITION_OFFSET
             || tmp.y_offset < 0 as ::core::ffi::c_int
             || tmp.y_offset >= MAX_POSITION_OFFSET
             || (tmp.duration < 0 as ::core::ffi::c_int || tmp.duration >= MAX_DURATION)
@@ -899,8 +874,7 @@ pub unsafe extern "C" fn WebPMuxPushFrame(
                 WebPDataClear(&raw mut frame);
                 if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
                     err = MuxImagePush(&raw mut wpi, &raw mut (*mux).images_);
-                    if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int)
-                    {
+                    if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
                         return WEBP_MUX_OK;
                     }
                 }
@@ -924,15 +898,10 @@ pub unsafe extern "C" fn WebPMuxSetAnimationParams(
     if mux.is_null() || params.is_null() {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    if (*params).loop_count < 0 as ::core::ffi::c_int
-        || (*params).loop_count >= MAX_LOOP_COUNT
-    {
+    if (*params).loop_count < 0 as ::core::ffi::c_int || (*params).loop_count >= MAX_LOOP_COUNT {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    err = MuxDeleteAllNamedData(
-        mux,
-        kChunks[IDX_ANIM as ::core::ffi::c_int as usize].tag,
-    );
+    err = MuxDeleteAllNamedData(mux, kChunks[IDX_ANIM as ::core::ffi::c_int as usize].tag);
     if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int
         && err as ::core::ffi::c_int != WEBP_MUX_NOT_FOUND as ::core::ffi::c_int
     {
@@ -960,8 +929,10 @@ pub unsafe extern "C" fn WebPMuxSetCanvasSize(
     if mux.is_null() {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    if width < 0 as ::core::ffi::c_int || height < 0 as ::core::ffi::c_int
-        || width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE
+    if width < 0 as ::core::ffi::c_int
+        || height < 0 as ::core::ffi::c_int
+        || width > MAX_CANVAS_SIZE
+        || height > MAX_CANVAS_SIZE
     {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
@@ -970,15 +941,10 @@ pub unsafe extern "C" fn WebPMuxSetCanvasSize(
     {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    if width * height == 0 as ::core::ffi::c_int
-        && width | height != 0 as ::core::ffi::c_int
-    {
+    if width * height == 0 as ::core::ffi::c_int && width | height != 0 as ::core::ffi::c_int {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    err = MuxDeleteAllNamedData(
-        mux,
-        kChunks[IDX_VP8X as ::core::ffi::c_int as usize].tag,
-    );
+    err = MuxDeleteAllNamedData(mux, kChunks[IDX_VP8X as ::core::ffi::c_int as usize].tag);
     if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int
         && err as ::core::ffi::c_int != WEBP_MUX_NOT_FOUND as ::core::ffi::c_int
     {
@@ -1017,8 +983,8 @@ unsafe extern "C" fn GetFrameInfo(
     let data: *const WebPData = &raw const (*frame_chunk).data_;
     let expected_data_size: size_t = ANMF_CHUNK_SIZE as size_t;
     '_c2rust_label: {
-        if (*frame_chunk).tag_ == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag
-        {} else {
+        if (*frame_chunk).tag_ == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag {
+        } else {
             __assert_fail(
                 b"frame_chunk->tag_ == kChunks[IDX_ANMF].tag\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1031,7 +997,8 @@ unsafe extern "C" fn GetFrameInfo(
         }
     };
     '_c2rust_label_0: {
-        if !frame_chunk.is_null() {} else {
+        if !frame_chunk.is_null() {
+        } else {
             __assert_fail(
                 b"frame_chunk != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1045,10 +1012,10 @@ unsafe extern "C" fn GetFrameInfo(
     if (*data).size != expected_data_size {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    *x_offset = 2 as ::core::ffi::c_int
-        * GetLE24((*data).bytes.offset(0 as ::core::ffi::c_int as isize));
-    *y_offset = 2 as ::core::ffi::c_int
-        * GetLE24((*data).bytes.offset(3 as ::core::ffi::c_int as isize));
+    *x_offset =
+        2 as ::core::ffi::c_int * GetLE24((*data).bytes.offset(0 as ::core::ffi::c_int as isize));
+    *y_offset =
+        2 as ::core::ffi::c_int * GetLE24((*data).bytes.offset(3 as ::core::ffi::c_int as isize));
     *duration = GetLE24((*data).bytes.offset(12 as ::core::ffi::c_int as isize));
     return WEBP_MUX_OK;
 }
@@ -1063,7 +1030,8 @@ unsafe extern "C" fn GetImageInfo(
     let frame_chunk: *const WebPChunk = (*wpi).header_;
     let mut err: WebPMuxError = WEBP_MUX_NOT_FOUND;
     '_c2rust_label: {
-        if !wpi.is_null() {} else {
+        if !wpi.is_null() {
+        } else {
             __assert_fail(
                 b"wpi != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1075,7 +1043,8 @@ unsafe extern "C" fn GetImageInfo(
         }
     };
     '_c2rust_label_0: {
-        if !frame_chunk.is_null() {} else {
+        if !frame_chunk.is_null() {
+        } else {
             __assert_fail(
                 b"frame_chunk != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1105,7 +1074,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
 ) -> WebPMuxError {
     let mut wpi: *mut WebPMuxImage = ::core::ptr::null_mut::<WebPMuxImage>();
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1117,7 +1087,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
         }
     };
     '_c2rust_label_0: {
-        if !width.is_null() && !height.is_null() {} else {
+        if !width.is_null() && !height.is_null() {
+        } else {
             __assert_fail(
                 b"width != NULL && height != NULL\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1131,7 +1102,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
     };
     wpi = (*mux).images_;
     '_c2rust_label_1: {
-        if !wpi.is_null() {} else {
+        if !wpi.is_null() {
+        } else {
             __assert_fail(
                 b"wpi != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1143,7 +1115,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
         }
     };
     '_c2rust_label_2: {
-        if !(*wpi).img_.is_null() {} else {
+        if !(*wpi).img_.is_null() {
+        } else {
             __assert_fail(
                 b"wpi->img_ != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1158,7 +1131,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
         let mut max_x: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
         let mut max_y: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
         '_c2rust_label_3: {
-            if !(*wpi).header_.is_null() {} else {
+            if !(*wpi).header_.is_null() {
+            } else {
                 __assert_fail(
                     b"wpi->header_ != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                     b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1189,8 +1163,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
                 return err;
             }
             '_c2rust_label_4: {
-                if x_offset < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int
-                {} else {
+                if x_offset < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int {
+                } else {
                     __assert_fail(
                         b"x_offset < MAX_POSITION_OFFSET\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -1203,8 +1177,8 @@ unsafe extern "C" fn GetAdjustedCanvasSize(
                 }
             };
             '_c2rust_label_5: {
-                if y_offset < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int
-                {} else {
+                if y_offset < (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int {
+                } else {
                     __assert_fail(
                         b"y_offset < MAX_POSITION_OFFSET\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -1244,11 +1218,12 @@ unsafe extern "C" fn CreateVP8XChunk(mux: *mut WebPMux) -> WebPMuxError {
     };
     let mut images: *const WebPMuxImage = ::core::ptr::null::<WebPMuxImage>();
     '_c2rust_label: {
-        if !mux.is_null() {} else {
+        if !mux.is_null() {
+        } else {
             __assert_fail(
                 b"mux != NULL\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 476 as ::core::ffi::c_uint,
                 b"WebPMuxError CreateVP8XChunk(WebPMux *const)\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1256,15 +1231,10 @@ unsafe extern "C" fn CreateVP8XChunk(mux: *mut WebPMux) -> WebPMuxError {
         }
     };
     images = (*mux).images_;
-    if images.is_null() || (*images).img_.is_null()
-        || (*(*images).img_).data_.bytes.is_null()
-    {
+    if images.is_null() || (*images).img_.is_null() || (*(*images).img_).data_.bytes.is_null() {
         return WEBP_MUX_INVALID_ARGUMENT;
     }
-    err = MuxDeleteAllNamedData(
-        mux,
-        kChunks[IDX_VP8X as ::core::ffi::c_int as usize].tag,
-    );
+    err = MuxDeleteAllNamedData(mux, kChunks[IDX_VP8X as ::core::ffi::c_int as usize].tag);
     if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int
         && err as ::core::ffi::c_int != WEBP_MUX_NOT_FOUND as ::core::ffi::c_int
     {
@@ -1280,9 +1250,7 @@ unsafe extern "C" fn CreateVP8XChunk(mux: *mut WebPMux) -> WebPMuxError {
         flags |= XMP_FLAG as ::core::ffi::c_int as uint32_t;
     }
     if !(*images).header_.is_null() {
-        if (*(*images).header_).tag_
-            == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag
-        {
+        if (*(*images).header_).tag_ == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag {
             flags |= ANIMATION_FLAG as ::core::ffi::c_int as uint32_t;
         }
     }
@@ -1355,7 +1323,8 @@ unsafe extern "C" fn MuxCleanup(mux: *mut WebPMux) -> WebPMuxError {
             return err;
         }
         '_c2rust_label: {
-            if !frame.is_null() {} else {
+            if !frame.is_null() {
+            } else {
                 __assert_fail(
                     b"frame != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                     b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
@@ -1373,9 +1342,9 @@ unsafe extern "C" fn MuxCleanup(mux: *mut WebPMux) -> WebPMuxError {
                     && (*frame).height_ == (*mux).canvas_height_)
         {
             '_c2rust_label_0: {
-                if (*(*frame).header_).tag_
-                    == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag
-                {} else {
+                if (*(*frame).header_).tag_ == kChunks[IDX_ANMF as ::core::ffi::c_int as usize].tag
+                {
+                } else {
                     __assert_fail(
                         b"frame->header_->tag_ == kChunks[IDX_ANMF].tag\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -1400,13 +1369,8 @@ unsafe extern "C" fn MuxCleanup(mux: *mut WebPMux) -> WebPMuxError {
     if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int {
         return err;
     }
-    if num_anim_chunks >= 1 as ::core::ffi::c_int
-        && num_frames == 0 as ::core::ffi::c_int
-    {
-        err = MuxDeleteAllNamedData(
-            mux,
-            kChunks[IDX_ANIM as ::core::ffi::c_int as usize].tag,
-        );
+    if num_anim_chunks >= 1 as ::core::ffi::c_int && num_frames == 0 as ::core::ffi::c_int {
+        err = MuxDeleteAllNamedData(mux, kChunks[IDX_ANIM as ::core::ffi::c_int as usize].tag);
         if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int {
             return err;
         }
@@ -1480,11 +1444,12 @@ pub unsafe extern "C" fn WebPMuxAssemble(
     dst = ChunkListEmit((*mux).xmp_, dst);
     dst = ChunkListEmit((*mux).unknown_, dst);
     '_c2rust_label: {
-        if dst == data.offset(size as isize) {} else {
+        if dst == data.offset(size as isize) {
+        } else {
             __assert_fail(
                 b"dst == data + size\0" as *const u8 as *const ::core::ffi::c_char,
-                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/muxedit.c\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 640 as ::core::ffi::c_uint,
                 b"WebPMuxError WebPMuxAssemble(WebPMux *, WebPData *)\0" as *const u8
                     as *const ::core::ffi::c_char,

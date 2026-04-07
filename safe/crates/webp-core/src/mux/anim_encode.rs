@@ -21,10 +21,7 @@ extern "C" {
         __line: ::core::ffi::c_uint,
         __function: *const ::core::ffi::c_char,
     ) -> !;
-    fn pow(
-        __x: ::core::ffi::c_double,
-        __y: ::core::ffi::c_double,
-    ) -> ::core::ffi::c_double;
+    fn pow(__x: ::core::ffi::c_double, __y: ::core::ffi::c_double) -> ::core::ffi::c_double;
     fn abs(__x: ::core::ffi::c_int) -> ::core::ffi::c_int;
     static mut stderr: *mut FILE;
     fn fprintf(
@@ -101,16 +98,10 @@ extern "C" {
         data_size: size_t,
         picture: *const WebPPicture,
     ) -> ::core::ffi::c_int;
-    fn WebPPictureInitInternal(
-        _: *mut WebPPicture,
-        _: ::core::ffi::c_int,
-    ) -> ::core::ffi::c_int;
+    fn WebPPictureInitInternal(_: *mut WebPPicture, _: ::core::ffi::c_int) -> ::core::ffi::c_int;
     fn WebPPictureAlloc(picture: *mut WebPPicture) -> ::core::ffi::c_int;
     fn WebPPictureFree(picture: *mut WebPPicture);
-    fn WebPPictureCopy(
-        src: *const WebPPicture,
-        dst: *mut WebPPicture,
-    ) -> ::core::ffi::c_int;
+    fn WebPPictureCopy(src: *const WebPPicture, dst: *mut WebPPicture) -> ::core::ffi::c_int;
     fn WebPPictureView(
         src: *const WebPPicture,
         left: ::core::ffi::c_int,
@@ -120,10 +111,7 @@ extern "C" {
         dst: *mut WebPPicture,
     ) -> ::core::ffi::c_int;
     fn WebPPictureYUVAToARGB(picture: *mut WebPPicture) -> ::core::ffi::c_int;
-    fn WebPEncode(
-        config: *const WebPConfig,
-        picture: *mut WebPPicture,
-    ) -> ::core::ffi::c_int;
+    fn WebPEncode(config: *const WebPConfig, picture: *mut WebPPicture) -> ::core::ffi::c_int;
     fn WebPGetFeaturesInternal(
         _: *const uint8_t,
         _: size_t,
@@ -142,10 +130,7 @@ extern "C" {
     fn WebPSafeCalloc(nmemb: uint64_t, size: size_t) -> *mut ::core::ffi::c_void;
     fn WebPSafeFree(ptr: *mut ::core::ffi::c_void);
     fn WebPCopyPixels(src: *const WebPPicture, dst: *mut WebPPicture);
-    fn WebPGetColorPalette(
-        pic: *const WebPPicture,
-        palette: *mut uint32_t,
-    ) -> ::core::ffi::c_int;
+    fn WebPGetColorPalette(pic: *const WebPPicture, palette: *mut uint32_t) -> ::core::ffi::c_int;
 }
 pub type __uint8_t = u8;
 pub type __uint32_t = u32;
@@ -326,9 +311,8 @@ pub struct WebPPicture {
     pub memory_argb_: *mut ::core::ffi::c_void,
     pub pad7: [*mut ::core::ffi::c_void; 2],
 }
-pub type WebPProgressHook = Option<
-    unsafe extern "C" fn(::core::ffi::c_int, *const WebPPicture) -> ::core::ffi::c_int,
->;
+pub type WebPProgressHook =
+    Option<unsafe extern "C" fn(::core::ffi::c_int, *const WebPPicture) -> ::core::ffi::c_int>;
 pub type WebPEncodingError = ::core::ffi::c_uint;
 pub const VP8_ENC_ERROR_LAST: WebPEncodingError = 11;
 pub const VP8_ENC_ERROR_USER_ABORT: WebPEncodingError = 10;
@@ -365,13 +349,8 @@ pub struct WebPAuxStats {
     pub lossless_data_size: ::core::ffi::c_int,
     pub pad: [uint32_t; 2],
 }
-pub type WebPWriterFunction = Option<
-    unsafe extern "C" fn(
-        *const uint8_t,
-        size_t,
-        *const WebPPicture,
-    ) -> ::core::ffi::c_int,
->;
+pub type WebPWriterFunction =
+    Option<unsafe extern "C" fn(*const uint8_t, size_t, *const WebPPicture) -> ::core::ffi::c_int>;
 pub type WebPEncCSP = ::core::ffi::c_uint;
 pub const WEBP_CSP_ALPHA_BIT: WebPEncCSP = 4;
 pub const WEBP_CSP_UV_MASK: WebPEncCSP = 3;
@@ -626,8 +605,8 @@ unsafe extern "C" fn WebPMuxCreate(
     return WebPMuxCreateInternal(bitstream, copy_data, WEBP_MUX_ABI_VERSION);
 }
 pub const ERROR_STR_MAX_LENGTH: ::core::ffi::c_int = 100 as ::core::ffi::c_int;
-pub const DELTA_INFINITY: ::core::ffi::c_ulonglong = (1 as ::core::ffi::c_ulonglong)
-    << 32 as ::core::ffi::c_int;
+pub const DELTA_INFINITY: ::core::ffi::c_ulonglong =
+    (1 as ::core::ffi::c_ulonglong) << 32 as ::core::ffi::c_int;
 pub const KEYFRAME_NONE: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
 unsafe extern "C" fn ResetCounters(enc: *mut WebPAnimEncoder) {
     (*enc).start_ = 0 as size_t;
@@ -665,15 +644,15 @@ unsafe extern "C" fn SanitizeEncoderOptions(enc_options: *mut WebPAnimEncoderOpt
             );
         }
     } else {
-        let kmin_limit: ::core::ffi::c_int = (*enc_options).kmax
-            / 2 as ::core::ffi::c_int + 1 as ::core::ffi::c_int;
+        let kmin_limit: ::core::ffi::c_int =
+            (*enc_options).kmax / 2 as ::core::ffi::c_int + 1 as ::core::ffi::c_int;
         if (*enc_options).kmin < kmin_limit && kmin_limit < (*enc_options).kmax {
             (*enc_options).kmin = kmin_limit;
             if print_warning != 0 {
                 fprintf(
                     stderr,
-                    b"WARNING: Setting kmin = %d, so that kmin >= kmax / 2 + 1.\n\0"
-                        as *const u8 as *const ::core::ffi::c_char,
+                    b"WARNING: Setting kmin = %d, so that kmin >= kmax / 2 + 1.\n\0" as *const u8
+                        as *const ::core::ffi::c_char,
                     (*enc_options).kmin,
                 );
             }
@@ -684,23 +663,24 @@ unsafe extern "C" fn SanitizeEncoderOptions(enc_options: *mut WebPAnimEncoderOpt
         if print_warning != 0 {
             fprintf(
                 stderr,
-                b"WARNING: Setting kmin = %d, so that kmax - kmin <= %d.\n\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"WARNING: Setting kmin = %d, so that kmax - kmin <= %d.\n\0" as *const u8
+                    as *const ::core::ffi::c_char,
                 (*enc_options).kmin,
                 MAX_CACHED_FRAMES,
             );
         }
     }
     '_c2rust_label: {
-        if (*enc_options).kmin < (*enc_options).kmax {} else {
+        if (*enc_options).kmin < (*enc_options).kmax {
+        } else {
             __assert_fail(
                 b"enc_options->kmin < enc_options->kmax\0" as *const u8
                     as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 169 as ::core::ffi::c_uint,
-                b"void SanitizeEncoderOptions(WebPAnimEncoderOptions *const)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"void SanitizeEncoderOptions(WebPAnimEncoderOptions *const)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
@@ -750,10 +730,7 @@ unsafe extern "C" fn ClearRectangle(
         j += 1;
     }
 }
-unsafe extern "C" fn WebPUtilClearPic(
-    picture: *mut WebPPicture,
-    rect: *const FrameRectangle,
-) {
+unsafe extern "C" fn WebPUtilClearPic(picture: *mut WebPPicture, rect: *const FrameRectangle) {
     if !rect.is_null() {
         ClearRectangle(
             picture,
@@ -773,13 +750,9 @@ unsafe extern "C" fn WebPUtilClearPic(
     };
 }
 unsafe extern "C" fn MarkNoError(enc: *mut WebPAnimEncoder) {
-    (*enc).error_str_[0 as ::core::ffi::c_int as usize] = '\0' as i32
-        as ::core::ffi::c_char;
+    (*enc).error_str_[0 as ::core::ffi::c_int as usize] = '\0' as i32 as ::core::ffi::c_char;
 }
-unsafe extern "C" fn MarkError(
-    enc: *mut WebPAnimEncoder,
-    mut str: *const ::core::ffi::c_char,
-) {
+unsafe extern "C" fn MarkError(enc: *mut WebPAnimEncoder, mut str: *const ::core::ffi::c_char) {
     if snprintf(
         &raw mut (*enc).error_str_ as *mut ::core::ffi::c_char,
         ERROR_STR_MAX_LENGTH as size_t,
@@ -818,8 +791,8 @@ unsafe extern "C" fn MarkError2(
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 232 as ::core::ffi::c_uint,
-                b"void MarkError2(WebPAnimEncoder *const, const char *, int)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"void MarkError2(WebPAnimEncoder *const, const char *, int)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         };
     }
@@ -837,9 +810,10 @@ pub unsafe extern "C" fn WebPAnimEncoderNewInternal(
     {
         return ::core::ptr::null_mut::<WebPAnimEncoder>();
     }
-    if width <= 0 as ::core::ffi::c_int || height <= 0 as ::core::ffi::c_int
-        || (width as uint64_t).wrapping_mul(height as uint64_t)
-            as ::core::ffi::c_ulonglong >= MAX_IMAGE_AREA
+    if width <= 0 as ::core::ffi::c_int
+        || height <= 0 as ::core::ffi::c_int
+        || (width as uint64_t).wrapping_mul(height as uint64_t) as ::core::ffi::c_ulonglong
+            >= MAX_IMAGE_AREA
     {
         return ::core::ptr::null_mut::<WebPAnimEncoder>();
     }
@@ -855,9 +829,7 @@ pub unsafe extern "C" fn WebPAnimEncoderNewInternal(
     *(&raw const (*enc).canvas_height_ as *mut ::core::ffi::c_int) = height;
     if !enc_options.is_null() {
         *(&raw const (*enc).options_ as *mut WebPAnimEncoderOptions) = *enc_options;
-        SanitizeEncoderOptions(
-            &raw const (*enc).options_ as *mut WebPAnimEncoderOptions,
-        );
+        SanitizeEncoderOptions(&raw const (*enc).options_ as *mut WebPAnimEncoderOptions);
     } else {
         DefaultEncoderOptions(&raw const (*enc).options_ as *mut WebPAnimEncoderOptions);
     }
@@ -884,8 +856,8 @@ pub unsafe extern "C" fn WebPAnimEncoderNewInternal(
             );
             (*enc).curr_canvas_copy_modified_ = 1 as ::core::ffi::c_int;
             ResetCounters(enc);
-            (*enc).size_ = ((*enc).options_.kmax - (*enc).options_.kmin
-                + 1 as ::core::ffi::c_int) as size_t;
+            (*enc).size_ =
+                ((*enc).options_.kmax - (*enc).options_.kmin + 1 as ::core::ffi::c_int) as size_t;
             if (*enc).size_ < 2 as size_t {
                 (*enc).size_ = 2 as size_t;
             }
@@ -931,9 +903,7 @@ pub unsafe extern "C" fn WebPAnimEncoderDelete(mut enc: *mut WebPAnimEncoder) {
             let mut i: size_t = 0;
             i = 0 as size_t;
             while i < (*enc).size_ {
-                FrameRelease(
-                    (*enc).encoded_frames_.offset(i as isize) as *mut EncodedFrame,
-                );
+                FrameRelease((*enc).encoded_frames_.offset(i as isize) as *mut EncodedFrame);
                 i = i.wrapping_add(1);
             }
             WebPSafeFree((*enc).encoded_frames_ as *mut ::core::ffi::c_void);
@@ -947,20 +917,21 @@ unsafe extern "C" fn GetFrame(
     mut position: size_t,
 ) -> *mut EncodedFrame {
     '_c2rust_label: {
-        if (*enc).start_.wrapping_add(position) < (*enc).size_ {} else {
+        if (*enc).start_.wrapping_add(position) < (*enc).size_ {
+        } else {
             __assert_fail(
-                b"enc->start_ + position < enc->size_\0" as *const u8
-                    as *const ::core::ffi::c_char,
+                b"enc->start_ + position < enc->size_\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 340 as ::core::ffi::c_uint,
-                b"EncodedFrame *GetFrame(const WebPAnimEncoder *const, size_t)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"EncodedFrame *GetFrame(const WebPAnimEncoder *const, size_t)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
-    return (*enc).encoded_frames_.offset((*enc).start_.wrapping_add(position) as isize)
-        as *mut EncodedFrame;
+    return (*enc)
+        .encoded_frames_
+        .offset((*enc).start_.wrapping_add(position) as isize) as *mut EncodedFrame;
 }
 #[inline]
 unsafe extern "C" fn ComparePixelsLossless(
@@ -972,7 +943,8 @@ unsafe extern "C" fn ComparePixelsLossless(
     mut max_allowed_diff: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
     '_c2rust_label: {
-        if length > 0 as ::core::ffi::c_int {} else {
+        if length > 0 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"length > 0\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -1003,22 +975,22 @@ unsafe extern "C" fn PixelsAreSimilar(
     mut dst: uint32_t,
     mut max_allowed_diff: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
-    let src_a: ::core::ffi::c_int = (src >> 24 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let src_r: ::core::ffi::c_int = (src >> 16 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let src_g: ::core::ffi::c_int = (src >> 8 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let src_b: ::core::ffi::c_int = (src >> 0 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let dst_a: ::core::ffi::c_int = (dst >> 24 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let dst_r: ::core::ffi::c_int = (dst >> 16 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let dst_g: ::core::ffi::c_int = (dst >> 8 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
-    let dst_b: ::core::ffi::c_int = (dst >> 0 as ::core::ffi::c_int & 0xff as uint32_t)
-        as ::core::ffi::c_int;
+    let src_a: ::core::ffi::c_int =
+        (src >> 24 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let src_r: ::core::ffi::c_int =
+        (src >> 16 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let src_g: ::core::ffi::c_int =
+        (src >> 8 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let src_b: ::core::ffi::c_int =
+        (src >> 0 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let dst_a: ::core::ffi::c_int =
+        (dst >> 24 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let dst_r: ::core::ffi::c_int =
+        (dst >> 16 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let dst_g: ::core::ffi::c_int =
+        (dst >> 8 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
+    let dst_b: ::core::ffi::c_int =
+        (dst >> 0 as ::core::ffi::c_int & 0xff as uint32_t) as ::core::ffi::c_int;
     return (src_a == dst_a
         && abs(src_r - dst_r) * dst_a <= max_allowed_diff * 255 as ::core::ffi::c_int
         && abs(src_g - dst_g) * dst_a <= max_allowed_diff * 255 as ::core::ffi::c_int
@@ -1035,7 +1007,8 @@ unsafe extern "C" fn ComparePixelsLossy(
     mut max_allowed_diff: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
     '_c2rust_label: {
-        if length > 0 as ::core::ffi::c_int {} else {
+        if length > 0 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"length > 0\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -1061,18 +1034,13 @@ unsafe extern "C" fn ComparePixelsLossy(
     return 1 as ::core::ffi::c_int;
 }
 unsafe extern "C" fn IsEmptyRect(rect: *const FrameRectangle) -> ::core::ffi::c_int {
-    return ((*rect).width_ == 0 as ::core::ffi::c_int
-        || (*rect).height_ == 0 as ::core::ffi::c_int) as ::core::ffi::c_int;
+    return ((*rect).width_ == 0 as ::core::ffi::c_int || (*rect).height_ == 0 as ::core::ffi::c_int)
+        as ::core::ffi::c_int;
 }
-unsafe extern "C" fn QualityToMaxDiff(
-    mut quality: ::core::ffi::c_float,
-) -> ::core::ffi::c_int {
-    let val: ::core::ffi::c_double = pow(
-        quality as ::core::ffi::c_double / 100.0f64,
-        0.5f64,
-    ) as ::core::ffi::c_double;
-    let max_diff: ::core::ffi::c_double = 31 as ::core::ffi::c_int
-        as ::core::ffi::c_double
+unsafe extern "C" fn QualityToMaxDiff(mut quality: ::core::ffi::c_float) -> ::core::ffi::c_int {
+    let val: ::core::ffi::c_double =
+        pow(quality as ::core::ffi::c_double / 100.0f64, 0.5f64) as ::core::ffi::c_double;
+    let max_diff: ::core::ffi::c_double = 31 as ::core::ffi::c_int as ::core::ffi::c_double
         * (1 as ::core::ffi::c_int as ::core::ffi::c_double - val)
         + 1 as ::core::ffi::c_int as ::core::ffi::c_double * val;
     return (max_diff + 0.5f64) as ::core::ffi::c_int;
@@ -1112,15 +1080,16 @@ unsafe extern "C" fn MinimizeChangeRectangle(
                 ) -> ::core::ffi::c_int,
         )
     };
-    let max_allowed_diff_lossy: ::core::ffi::c_int = QualityToMaxDiff(quality)
-        as ::core::ffi::c_int;
+    let max_allowed_diff_lossy: ::core::ffi::c_int =
+        QualityToMaxDiff(quality) as ::core::ffi::c_int;
     let max_allowed_diff: ::core::ffi::c_int = if is_lossless != 0 {
         0 as ::core::ffi::c_int
     } else {
         max_allowed_diff_lossy
     };
     '_c2rust_label: {
-        if (*src).width == (*dst).width && (*src).height == (*dst).height {} else {
+        if (*src).width == (*dst).width && (*src).height == (*dst).height {
+        } else {
             __assert_fail(
                 b"src->width == dst->width && src->height == dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1133,7 +1102,8 @@ unsafe extern "C" fn MinimizeChangeRectangle(
         }
     };
     '_c2rust_label_0: {
-        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {} else {
+        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {
+        } else {
             __assert_fail(
                 b"rect->x_offset_ + rect->width_ <= dst->width\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1146,7 +1116,8 @@ unsafe extern "C" fn MinimizeChangeRectangle(
         }
     };
     '_c2rust_label_1: {
-        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {} else {
+        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {
+        } else {
             __assert_fail(
                 b"rect->y_offset_ + rect->height_ <= dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1168,10 +1139,7 @@ unsafe extern "C" fn MinimizeChangeRectangle(
             .argb
             .offset(((*rect).y_offset_ * (*dst).argb_stride + i) as isize)
             as *mut uint32_t;
-        if !(compare_pixels
-            .expect(
-                "non-null function pointer",
-            )(
+        if !(compare_pixels.expect("non-null function pointer")(
             src_argb,
             (*src).argb_stride,
             dst_argb,
@@ -1199,10 +1167,7 @@ unsafe extern "C" fn MinimizeChangeRectangle(
                 .argb
                 .offset(((*rect).y_offset_ * (*dst).argb_stride + i) as isize)
                 as *mut uint32_t;
-            if !(compare_pixels
-                .expect(
-                    "non-null function pointer",
-                )(
+            if !(compare_pixels.expect("non-null function pointer")(
                 src_argb_0,
                 (*src).argb_stride,
                 dst_argb_0,
@@ -1229,10 +1194,7 @@ unsafe extern "C" fn MinimizeChangeRectangle(
                     .argb
                     .offset((j * (*dst).argb_stride + (*rect).x_offset_) as isize)
                     as *mut uint32_t;
-                if !(compare_pixels
-                    .expect(
-                        "non-null function pointer",
-                    )(
+                if !(compare_pixels.expect("non-null function pointer")(
                     src_argb_1,
                     1 as ::core::ffi::c_int,
                     dst_argb_1,
@@ -1260,10 +1222,7 @@ unsafe extern "C" fn MinimizeChangeRectangle(
                         .argb
                         .offset((j * (*dst).argb_stride + (*rect).x_offset_) as isize)
                         as *mut uint32_t;
-                    if !(compare_pixels
-                        .expect(
-                            "non-null function pointer",
-                        )(
+                    if !(compare_pixels.expect("non-null function pointer")(
                         src_argb_2,
                         1 as ::core::ffi::c_int,
                         dst_argb_2,
@@ -1338,12 +1297,13 @@ unsafe extern "C" fn GetSubRect(
     }
     if IsEmptyRect(rect) != 0 {
         if empty_rect_allowed != 0 {
-            return 1 as ::core::ffi::c_int
+            return 1 as ::core::ffi::c_int;
         } else {
             (*rect).width_ = 1 as ::core::ffi::c_int;
             (*rect).height_ = 1 as ::core::ffi::c_int;
             '_c2rust_label: {
-                if (*rect).x_offset_ == 0 as ::core::ffi::c_int {} else {
+                if (*rect).x_offset_ == 0 as ::core::ffi::c_int {
+                } else {
                     __assert_fail(
                         b"rect->x_offset_ == 0\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -1356,7 +1316,8 @@ unsafe extern "C" fn GetSubRect(
                 }
             };
             '_c2rust_label_0: {
-                if (*rect).y_offset_ == 0 as ::core::ffi::c_int {} else {
+                if (*rect).y_offset_ == 0 as ::core::ffi::c_int {
+                } else {
                     __assert_fail(
                         b"rect->y_offset_ == 0\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -1425,7 +1386,13 @@ unsafe extern "C" fn clip(
     mut min_v: ::core::ffi::c_int,
     mut max_v: ::core::ffi::c_int,
 ) -> ::core::ffi::c_int {
-    return if v < min_v { min_v } else if v > max_v { max_v } else { v };
+    return if v < min_v {
+        min_v
+    } else if v > max_v {
+        max_v
+    } else {
+        v
+    };
 }
 #[no_mangle]
 pub unsafe extern "C" fn WebPAnimEncoderRefineRect(
@@ -1448,20 +1415,30 @@ pub unsafe extern "C" fn WebPAnimEncoderRefineRect(
     let mut left: ::core::ffi::c_int = 0;
     let mut bottom: ::core::ffi::c_int = 0;
     let mut top: ::core::ffi::c_int = 0;
-    if prev_canvas.is_null() || curr_canvas.is_null()
+    if prev_canvas.is_null()
+        || curr_canvas.is_null()
         || (*prev_canvas).width != (*curr_canvas).width
-        || (*prev_canvas).height != (*curr_canvas).height || (*prev_canvas).use_argb == 0
+        || (*prev_canvas).height != (*curr_canvas).height
+        || (*prev_canvas).use_argb == 0
         || (*curr_canvas).use_argb == 0
     {
         return 0 as ::core::ffi::c_int;
     }
-    right = clip(*x_offset + *width, 0 as ::core::ffi::c_int, (*curr_canvas).width);
+    right = clip(
+        *x_offset + *width,
+        0 as ::core::ffi::c_int,
+        (*curr_canvas).width,
+    );
     left = clip(
         *x_offset,
         0 as ::core::ffi::c_int,
         (*curr_canvas).width - 1 as ::core::ffi::c_int,
     );
-    bottom = clip(*y_offset + *height, 0 as ::core::ffi::c_int, (*curr_canvas).height);
+    bottom = clip(
+        *y_offset + *height,
+        0 as ::core::ffi::c_int,
+        (*curr_canvas).height,
+    );
     top = clip(
         *y_offset,
         0 as ::core::ffi::c_int,
@@ -1499,7 +1476,8 @@ unsafe extern "C" fn DisposeFrameRectangle(
     curr_canvas: *mut WebPPicture,
 ) {
     '_c2rust_label: {
-        if !rect.is_null() {} else {
+        if !rect.is_null() {
+        } else {
             __assert_fail(
                 b"rect != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -1525,7 +1503,8 @@ unsafe extern "C" fn IsLosslessBlendingPossible(
     let mut i: ::core::ffi::c_int = 0;
     let mut j: ::core::ffi::c_int = 0;
     '_c2rust_label: {
-        if (*src).width == (*dst).width && (*src).height == (*dst).height {} else {
+        if (*src).width == (*dst).width && (*src).height == (*dst).height {
+        } else {
             __assert_fail(
                 b"src->width == dst->width && src->height == dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1538,7 +1517,8 @@ unsafe extern "C" fn IsLosslessBlendingPossible(
         }
     };
     '_c2rust_label_0: {
-        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {} else {
+        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {
+        } else {
             __assert_fail(
                 b"rect->x_offset_ + rect->width_ <= dst->width\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1551,7 +1531,8 @@ unsafe extern "C" fn IsLosslessBlendingPossible(
         }
     };
     '_c2rust_label_1: {
-        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {} else {
+        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {
+        } else {
             __assert_fail(
                 b"rect->y_offset_ + rect->height_ <= dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1567,12 +1548,8 @@ unsafe extern "C" fn IsLosslessBlendingPossible(
     while j < (*rect).y_offset_ + (*rect).height_ {
         i = (*rect).x_offset_;
         while i < (*rect).x_offset_ + (*rect).width_ {
-            let src_pixel: uint32_t = *(*src)
-                .argb
-                .offset((j * (*src).argb_stride + i) as isize);
-            let dst_pixel: uint32_t = *(*dst)
-                .argb
-                .offset((j * (*dst).argb_stride + i) as isize);
+            let src_pixel: uint32_t = *(*src).argb.offset((j * (*src).argb_stride + i) as isize);
+            let dst_pixel: uint32_t = *(*dst).argb.offset((j * (*dst).argb_stride + i) as isize);
             let dst_alpha: uint32_t = dst_pixel >> 24 as ::core::ffi::c_int;
             if dst_alpha != 0xff as uint32_t && src_pixel != dst_pixel {
                 return 0 as ::core::ffi::c_int;
@@ -1589,12 +1566,13 @@ unsafe extern "C" fn IsLossyBlendingPossible(
     rect: *const FrameRectangle,
     mut quality: ::core::ffi::c_float,
 ) -> ::core::ffi::c_int {
-    let max_allowed_diff_lossy: ::core::ffi::c_int = QualityToMaxDiff(quality)
-        as ::core::ffi::c_int;
+    let max_allowed_diff_lossy: ::core::ffi::c_int =
+        QualityToMaxDiff(quality) as ::core::ffi::c_int;
     let mut i: ::core::ffi::c_int = 0;
     let mut j: ::core::ffi::c_int = 0;
     '_c2rust_label: {
-        if (*src).width == (*dst).width && (*src).height == (*dst).height {} else {
+        if (*src).width == (*dst).width && (*src).height == (*dst).height {
+        } else {
             __assert_fail(
                 b"src->width == dst->width && src->height == dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1607,7 +1585,8 @@ unsafe extern "C" fn IsLossyBlendingPossible(
         }
     };
     '_c2rust_label_0: {
-        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {} else {
+        if (*rect).x_offset_ + (*rect).width_ <= (*dst).width {
+        } else {
             __assert_fail(
                 b"rect->x_offset_ + rect->width_ <= dst->width\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1620,7 +1599,8 @@ unsafe extern "C" fn IsLossyBlendingPossible(
         }
     };
     '_c2rust_label_1: {
-        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {} else {
+        if (*rect).y_offset_ + (*rect).height_ <= (*dst).height {
+        } else {
             __assert_fail(
                 b"rect->y_offset_ + rect->height_ <= dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1636,12 +1616,8 @@ unsafe extern "C" fn IsLossyBlendingPossible(
     while j < (*rect).y_offset_ + (*rect).height_ {
         i = (*rect).x_offset_;
         while i < (*rect).x_offset_ + (*rect).width_ {
-            let src_pixel: uint32_t = *(*src)
-                .argb
-                .offset((j * (*src).argb_stride + i) as isize);
-            let dst_pixel: uint32_t = *(*dst)
-                .argb
-                .offset((j * (*dst).argb_stride + i) as isize);
+            let src_pixel: uint32_t = *(*src).argb.offset((j * (*src).argb_stride + i) as isize);
+            let dst_pixel: uint32_t = *(*dst).argb.offset((j * (*dst).argb_stride + i) as isize);
             let dst_alpha: uint32_t = dst_pixel >> 24 as ::core::ffi::c_int;
             if dst_alpha != 0xff as uint32_t
                 && PixelsAreSimilar(src_pixel, dst_pixel, max_allowed_diff_lossy) == 0
@@ -1663,7 +1639,8 @@ unsafe extern "C" fn IncreaseTransparency(
     let mut j: ::core::ffi::c_int = 0;
     let mut modified: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     '_c2rust_label: {
-        if !src.is_null() && !dst.is_null() && !rect.is_null() {} else {
+        if !src.is_null() && !dst.is_null() && !rect.is_null() {
+        } else {
             __assert_fail(
                 b"src != NULL && dst != NULL && rect != NULL\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1676,7 +1653,8 @@ unsafe extern "C" fn IncreaseTransparency(
         }
     };
     '_c2rust_label_0: {
-        if (*src).width == (*dst).width && (*src).height == (*dst).height {} else {
+        if (*src).width == (*dst).width && (*src).height == (*dst).height {
+        } else {
             __assert_fail(
                 b"src->width == dst->width && src->height == dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1690,9 +1668,7 @@ unsafe extern "C" fn IncreaseTransparency(
     };
     j = (*rect).y_offset_;
     while j < (*rect).y_offset_ + (*rect).height_ {
-        let psrc: *const uint32_t = (*src)
-            .argb
-            .offset((j * (*src).argb_stride) as isize);
+        let psrc: *const uint32_t = (*src).argb.offset((j * (*src).argb_stride) as isize);
         let pdst: *mut uint32_t = (*dst).argb.offset((j * (*dst).argb_stride) as isize);
         i = (*rect).x_offset_;
         while i < (*rect).x_offset_ + (*rect).width_ {
@@ -1714,22 +1690,23 @@ unsafe extern "C" fn FlattenSimilarBlocks(
     dst: *mut WebPPicture,
     mut quality: ::core::ffi::c_float,
 ) -> ::core::ffi::c_int {
-    let max_allowed_diff_lossy: ::core::ffi::c_int = QualityToMaxDiff(quality)
-        as ::core::ffi::c_int;
+    let max_allowed_diff_lossy: ::core::ffi::c_int =
+        QualityToMaxDiff(quality) as ::core::ffi::c_int;
     let mut i: ::core::ffi::c_int = 0;
     let mut j: ::core::ffi::c_int = 0;
     let mut modified: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
     let block_size: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
-    let y_start: ::core::ffi::c_int = (*rect).y_offset_ + block_size
-        & !(block_size - 1 as ::core::ffi::c_int);
-    let y_end: ::core::ffi::c_int = (*rect).y_offset_ + (*rect).height_
-        & !(block_size - 1 as ::core::ffi::c_int);
-    let x_start: ::core::ffi::c_int = (*rect).x_offset_ + block_size
-        & !(block_size - 1 as ::core::ffi::c_int);
-    let x_end: ::core::ffi::c_int = (*rect).x_offset_ + (*rect).width_
-        & !(block_size - 1 as ::core::ffi::c_int);
+    let y_start: ::core::ffi::c_int =
+        (*rect).y_offset_ + block_size & !(block_size - 1 as ::core::ffi::c_int);
+    let y_end: ::core::ffi::c_int =
+        (*rect).y_offset_ + (*rect).height_ & !(block_size - 1 as ::core::ffi::c_int);
+    let x_start: ::core::ffi::c_int =
+        (*rect).x_offset_ + block_size & !(block_size - 1 as ::core::ffi::c_int);
+    let x_end: ::core::ffi::c_int =
+        (*rect).x_offset_ + (*rect).width_ & !(block_size - 1 as ::core::ffi::c_int);
     '_c2rust_label: {
-        if !src.is_null() && !dst.is_null() && !rect.is_null() {} else {
+        if !src.is_null() && !dst.is_null() && !rect.is_null() {
+        } else {
             __assert_fail(
                 b"src != NULL && dst != NULL && rect != NULL\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1742,7 +1719,8 @@ unsafe extern "C" fn FlattenSimilarBlocks(
         }
     };
     '_c2rust_label_0: {
-        if (*src).width == (*dst).width && (*src).height == (*dst).height {} else {
+        if (*src).width == (*dst).width && (*src).height == (*dst).height {
+        } else {
             __assert_fail(
                 b"src->width == dst->width && src->height == dst->height\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1755,8 +1733,8 @@ unsafe extern "C" fn FlattenSimilarBlocks(
         }
     };
     '_c2rust_label_1: {
-        if block_size & block_size - 1 as ::core::ffi::c_int == 0 as ::core::ffi::c_int
-        {} else {
+        if block_size & block_size - 1 as ::core::ffi::c_int == 0 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"(block_size & (block_size - 1)) == 0\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -1790,10 +1768,9 @@ unsafe extern "C" fn FlattenSimilarBlocks(
             while y < block_size {
                 x = 0 as ::core::ffi::c_int;
                 while x < block_size {
-                    let src_pixel: uint32_t = *psrc
-                        .offset((x + y * (*src).argb_stride) as isize);
-                    let alpha: ::core::ffi::c_int = (src_pixel
-                        >> 24 as ::core::ffi::c_int) as ::core::ffi::c_int;
+                    let src_pixel: uint32_t = *psrc.offset((x + y * (*src).argb_stride) as isize);
+                    let alpha: ::core::ffi::c_int =
+                        (src_pixel >> 24 as ::core::ffi::c_int) as ::core::ffi::c_int;
                     if alpha == 0xff as ::core::ffi::c_int
                         && PixelsAreSimilar(
                             src_pixel,
@@ -1803,27 +1780,28 @@ unsafe extern "C" fn FlattenSimilarBlocks(
                     {
                         cnt += 1;
                         avg_r = (avg_r as uint32_t)
-                            .wrapping_add(
-                                src_pixel >> 16 as ::core::ffi::c_int & 0xff as uint32_t,
-                            ) as ::core::ffi::c_int as ::core::ffi::c_int;
+                            .wrapping_add(src_pixel >> 16 as ::core::ffi::c_int & 0xff as uint32_t)
+                            as ::core::ffi::c_int
+                            as ::core::ffi::c_int;
                         avg_g = (avg_g as uint32_t)
-                            .wrapping_add(
-                                src_pixel >> 8 as ::core::ffi::c_int & 0xff as uint32_t,
-                            ) as ::core::ffi::c_int as ::core::ffi::c_int;
+                            .wrapping_add(src_pixel >> 8 as ::core::ffi::c_int & 0xff as uint32_t)
+                            as ::core::ffi::c_int
+                            as ::core::ffi::c_int;
                         avg_b = (avg_b as uint32_t)
-                            .wrapping_add(
-                                src_pixel >> 0 as ::core::ffi::c_int & 0xff as uint32_t,
-                            ) as ::core::ffi::c_int as ::core::ffi::c_int;
+                            .wrapping_add(src_pixel >> 0 as ::core::ffi::c_int & 0xff as uint32_t)
+                            as ::core::ffi::c_int
+                            as ::core::ffi::c_int;
                     }
                     x += 1;
                 }
                 y += 1;
             }
             if cnt == block_size * block_size {
-                let color: uint32_t = ((0 as ::core::ffi::c_int)
-                    << 24 as ::core::ffi::c_int | avg_r / cnt << 16 as ::core::ffi::c_int
+                let color: uint32_t = ((0 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int
+                    | avg_r / cnt << 16 as ::core::ffi::c_int
                     | avg_g / cnt << 8 as ::core::ffi::c_int
-                    | avg_b / cnt << 0 as ::core::ffi::c_int) as uint32_t;
+                    | avg_b / cnt << 0 as ::core::ffi::c_int)
+                    as uint32_t;
                 y = 0 as ::core::ffi::c_int;
                 while y < block_size {
                     x = 0 as ::core::ffi::c_int;
@@ -1871,7 +1849,8 @@ unsafe extern "C" fn EncodeCandidate(
     let mut config: WebPConfig = *encoder_config;
     let mut error_code: WebPEncodingError = VP8_ENC_OK;
     '_c2rust_label: {
-        if !candidate.is_null() {} else {
+        if !candidate.is_null() {
+        } else {
             __assert_fail(
                 b"candidate != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -1942,8 +1921,7 @@ unsafe extern "C" fn GenerateCandidates(
         candidates.offset(LL_DISP_BG as ::core::ffi::c_int as isize) as *mut Candidate
     };
     let candidate_lossy: *mut Candidate = if is_dispose_none != 0 {
-        candidates.offset(LOSSY_DISP_NONE as ::core::ffi::c_int as isize)
-            as *mut Candidate
+        candidates.offset(LOSSY_DISP_NONE as ::core::ffi::c_int as isize) as *mut Candidate
     } else {
         candidates.offset(LOSSY_DISP_BG as ::core::ffi::c_int as isize) as *mut Candidate
     };
@@ -1959,11 +1937,8 @@ unsafe extern "C" fn GenerateCandidates(
     let mut evaluate_lossy: ::core::ffi::c_int = 0;
     CopyCurrentCanvas(enc);
     use_blending_ll = (is_key_frame == 0
-        && IsLosslessBlendingPossible(
-            prev_canvas,
-            curr_canvas,
-            &raw mut (*params).rect_ll_,
-        ) != 0) as ::core::ffi::c_int;
+        && IsLosslessBlendingPossible(prev_canvas, curr_canvas, &raw mut (*params).rect_ll_) != 0)
+        as ::core::ffi::c_int;
     use_blending_lossy = (is_key_frame == 0
         && IsLossyBlendingPossible(
             prev_canvas,
@@ -1988,11 +1963,8 @@ unsafe extern "C" fn GenerateCandidates(
     if evaluate_ll != 0 {
         CopyCurrentCanvas(enc);
         if use_blending_ll != 0 {
-            (*enc).curr_canvas_copy_modified_ = IncreaseTransparency(
-                prev_canvas,
-                &raw mut (*params).rect_ll_,
-                curr_canvas,
-            );
+            (*enc).curr_canvas_copy_modified_ =
+                IncreaseTransparency(prev_canvas, &raw mut (*params).rect_ll_, curr_canvas);
         }
         error_code = EncodeCandidate(
             &raw mut (*params).sub_frame_ll_,
@@ -2033,10 +2005,7 @@ unsafe extern "C" fn GenerateCandidates(
     }
     return error_code;
 }
-unsafe extern "C" fn GetEncodedData(
-    memory: *const WebPMemoryWriter,
-    encoded_data: *mut WebPData,
-) {
+unsafe extern "C" fn GetEncodedData(memory: *const WebPMemoryWriter, encoded_data: *mut WebPData) {
     (*encoded_data).bytes = (*memory).mem;
     (*encoded_data).size = (*memory).size;
 }
@@ -2047,7 +2016,8 @@ unsafe extern "C" fn SetPreviousDisposeMethod(
     let position: size_t = (*enc).count_.wrapping_sub(2 as size_t);
     let prev_enc_frame: *mut EncodedFrame = GetFrame(enc, position) as *mut EncodedFrame;
     '_c2rust_label: {
-        if (*enc).count_ >= 2 as size_t {} else {
+        if (*enc).count_ >= 2 as size_t {
+        } else {
             __assert_fail(
                 b"enc->count_ >= 2\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -2062,7 +2032,8 @@ unsafe extern "C" fn SetPreviousDisposeMethod(
         '_c2rust_label_0: {
             if dispose_method as ::core::ffi::c_uint
                 == WEBP_MUX_DISPOSE_NONE as ::core::ffi::c_int as ::core::ffi::c_uint
-            {} else {
+            {
+            } else {
                 __assert_fail(
                     b"dispose_method == WEBP_MUX_DISPOSE_NONE\0" as *const u8
                         as *const ::core::ffi::c_char,
@@ -2093,22 +2064,23 @@ unsafe extern "C" fn IncreasePreviousDuration(
     let prev_enc_frame: *mut EncodedFrame = GetFrame(enc, position) as *mut EncodedFrame;
     let mut new_duration: ::core::ffi::c_int = 0;
     '_c2rust_label: {
-        if (*enc).count_ >= 1 as size_t {} else {
+        if (*enc).count_ >= 1 as size_t {
+        } else {
             __assert_fail(
                 b"enc->count_ >= 1\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 949 as ::core::ffi::c_uint,
-                b"int IncreasePreviousDuration(WebPAnimEncoder *const, int)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"int IncreasePreviousDuration(WebPAnimEncoder *const, int)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
     '_c2rust_label_0: {
         if (*prev_enc_frame).is_key_frame_ == 0
-            || (*prev_enc_frame).sub_frame_.duration
-                == (*prev_enc_frame).key_frame_.duration
-        {} else {
+            || (*prev_enc_frame).sub_frame_.duration == (*prev_enc_frame).key_frame_.duration
+        {
+        } else {
             __assert_fail(
                 b"!prev_enc_frame->is_key_frame_ || prev_enc_frame->sub_frame_.duration == prev_enc_frame->key_frame_.duration\0"
                     as *const u8 as *const ::core::ffi::c_char,
@@ -2123,9 +2095,9 @@ unsafe extern "C" fn IncreasePreviousDuration(
     '_c2rust_label_1: {
         if (*prev_enc_frame).sub_frame_.duration
             == (*prev_enc_frame).sub_frame_.duration
-                & ((1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int)
-                    - 1 as ::core::ffi::c_int
-        {} else {
+                & ((1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int) - 1 as ::core::ffi::c_int
+        {
+        } else {
             __assert_fail(
                 b"prev_enc_frame->sub_frame_.duration == (prev_enc_frame->sub_frame_.duration & (MAX_DURATION - 1))\0"
                     as *const u8 as *const ::core::ffi::c_char,
@@ -2140,17 +2112,17 @@ unsafe extern "C" fn IncreasePreviousDuration(
     '_c2rust_label_2: {
         if duration
             == duration
-                & ((1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int)
-                    - 1 as ::core::ffi::c_int
-        {} else {
+                & ((1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int) - 1 as ::core::ffi::c_int
+        {
+        } else {
             __assert_fail(
                 b"duration == (duration & (MAX_DURATION - 1))\0" as *const u8
                     as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 955 as ::core::ffi::c_uint,
-                b"int IncreasePreviousDuration(WebPAnimEncoder *const, int)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"int IncreasePreviousDuration(WebPAnimEncoder *const, int)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
@@ -2275,9 +2247,9 @@ unsafe extern "C" fn IncreasePreviousDuration(
             size: ::core::mem::size_of::<[uint8_t; 72]>() as size_t,
         };
         let can_use_lossless: ::core::ffi::c_int = ((*enc).last_config_.lossless != 0
-            || (*enc).options_.allow_mixed != 0) as ::core::ffi::c_int;
-        let curr_enc_frame: *mut EncodedFrame = GetFrame(enc, (*enc).count_)
-            as *mut EncodedFrame;
+            || (*enc).options_.allow_mixed != 0)
+            as ::core::ffi::c_int;
+        let curr_enc_frame: *mut EncodedFrame = GetFrame(enc, (*enc).count_) as *mut EncodedFrame;
         (*curr_enc_frame).is_key_frame_ = 0 as ::core::ffi::c_int;
         (*curr_enc_frame).sub_frame_.id = WEBP_CHUNK_ANMF;
         (*curr_enc_frame).sub_frame_.x_offset = 0 as ::core::ffi::c_int;
@@ -2328,7 +2300,8 @@ unsafe extern "C" fn PickBestCandidate(
         i += 1;
     }
     '_c2rust_label: {
-        if best_idx != -(1 as ::core::ffi::c_int) {} else {
+        if best_idx != -(1 as ::core::ffi::c_int) {
+        } else {
             __assert_fail(
                 b"best_idx != -1\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -2354,14 +2327,14 @@ unsafe extern "C" fn PickBestCandidate(
                     &raw mut (*dst).bitstream,
                 );
                 if is_key_frame == 0 {
-                    let prev_dispose_method: WebPMuxAnimDispose = (if best_idx
-                        == LL_DISP_NONE as ::core::ffi::c_int
-                        || best_idx == LOSSY_DISP_NONE as ::core::ffi::c_int
-                    {
-                        WEBP_MUX_DISPOSE_NONE as ::core::ffi::c_int
-                    } else {
-                        WEBP_MUX_DISPOSE_BACKGROUND as ::core::ffi::c_int
-                    }) as WebPMuxAnimDispose;
+                    let prev_dispose_method: WebPMuxAnimDispose =
+                        (if best_idx == LL_DISP_NONE as ::core::ffi::c_int
+                            || best_idx == LOSSY_DISP_NONE as ::core::ffi::c_int
+                        {
+                            WEBP_MUX_DISPOSE_NONE as ::core::ffi::c_int
+                        } else {
+                            WEBP_MUX_DISPOSE_BACKGROUND as ::core::ffi::c_int
+                        }) as WebPMuxAnimDispose;
                     SetPreviousDisposeMethod(enc, prev_dispose_method);
                 }
                 (*enc).prev_rect_ = (*candidates.offset(i as isize)).rect_;
@@ -2414,16 +2387,15 @@ unsafe extern "C" fn SetFrame(
         evaluate_: 0,
     }; 4];
     let is_lossless: ::core::ffi::c_int = (*config).lossless;
-    let consider_lossless: ::core::ffi::c_int = (is_lossless != 0
-        || (*enc).options_.allow_mixed != 0) as ::core::ffi::c_int;
-    let consider_lossy: ::core::ffi::c_int = (is_lossless == 0
-        || (*enc).options_.allow_mixed != 0) as ::core::ffi::c_int;
+    let consider_lossless: ::core::ffi::c_int =
+        (is_lossless != 0 || (*enc).options_.allow_mixed != 0) as ::core::ffi::c_int;
+    let consider_lossy: ::core::ffi::c_int =
+        (is_lossless == 0 || (*enc).options_.allow_mixed != 0) as ::core::ffi::c_int;
     let is_first_frame: ::core::ffi::c_int = (*enc).is_first_frame_;
-    let empty_rect_allowed_none: ::core::ffi::c_int = (is_first_frame == 0)
-        as ::core::ffi::c_int;
+    let empty_rect_allowed_none: ::core::ffi::c_int = (is_first_frame == 0) as ::core::ffi::c_int;
     let empty_rect_allowed_bg: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-    let dispose_bg_possible: ::core::ffi::c_int = (is_key_frame == 0
-        && (*enc).prev_candidate_undecided_ == 0) as ::core::ffi::c_int;
+    let dispose_bg_possible: ::core::ffi::c_int =
+        (is_key_frame == 0 && (*enc).prev_candidate_undecided_ == 0) as ::core::ffi::c_int;
     let mut dispose_none_params: SubFrameParams = SubFrameParams {
         should_try_: 0,
         empty_rect_allowed_: 0,
@@ -2624,13 +2596,12 @@ unsafe extern "C" fn SetFrame(
     {
         error_code = VP8_ENC_ERROR_INVALID_CONFIGURATION;
         current_block = 6836373173516796232;
-    } else if consider_lossless != 0
-        && IsEmptyRect(&raw mut dispose_none_params.rect_ll_) != 0
-        || consider_lossy != 0
-            && IsEmptyRect(&raw mut dispose_none_params.rect_lossy_) != 0
+    } else if consider_lossless != 0 && IsEmptyRect(&raw mut dispose_none_params.rect_ll_) != 0
+        || consider_lossy != 0 && IsEmptyRect(&raw mut dispose_none_params.rect_lossy_) != 0
     {
         '_c2rust_label: {
-            if empty_rect_allowed_none != 0 {} else {
+            if empty_rect_allowed_none != 0 {
+            } else {
                 __assert_fail(
                     b"empty_rect_allowed_none\0" as *const u8
                         as *const ::core::ffi::c_char,
@@ -2646,8 +2617,7 @@ unsafe extern "C" fn SetFrame(
         current_block = 16070219131484073282;
     } else {
         if dispose_bg_possible != 0 {
-            let prev_canvas_disposed: *mut WebPPicture = &raw mut (*enc)
-                .prev_canvas_disposed_;
+            let prev_canvas_disposed: *mut WebPPicture = &raw mut (*enc).prev_canvas_disposed_;
             WebPCopyPixels(
                 prev_canvas as *const WebPPicture,
                 prev_canvas_disposed as *mut WebPPicture,
@@ -2670,7 +2640,8 @@ unsafe extern "C" fn SetFrame(
                 current_block = 6836373173516796232;
             } else {
                 '_c2rust_label_0: {
-                    if IsEmptyRect(&raw mut dispose_bg_params.rect_ll_) == 0 {} else {
+                    if IsEmptyRect(&raw mut dispose_bg_params.rect_ll_) == 0 {
+                    } else {
                         __assert_fail(
                             b"!IsEmptyRect(&dispose_bg_params.rect_ll_)\0" as *const u8
                                 as *const ::core::ffi::c_char,
@@ -2683,7 +2654,8 @@ unsafe extern "C" fn SetFrame(
                     }
                 };
                 '_c2rust_label_1: {
-                    if IsEmptyRect(&raw mut dispose_bg_params.rect_lossy_) == 0 {} else {
+                    if IsEmptyRect(&raw mut dispose_bg_params.rect_lossy_) == 0 {
+                    } else {
                         __assert_fail(
                             b"!IsEmptyRect(&dispose_bg_params.rect_lossy_)\0"
                                 as *const u8 as *const ::core::ffi::c_char,
@@ -2742,7 +2714,8 @@ unsafe extern "C" fn SetFrame(
                     _ => {
                         if dispose_bg_params.should_try_ != 0 {
                             '_c2rust_label_2: {
-                                if (*enc).is_first_frame_ == 0 {} else {
+                                if (*enc).is_first_frame_ == 0 {
+                                } else {
                                     __assert_fail(
                                         b"!enc->is_first_frame_\0" as *const u8
                                             as *const ::core::ffi::c_char,
@@ -2755,7 +2728,8 @@ unsafe extern "C" fn SetFrame(
                                 }
                             };
                             '_c2rust_label_3: {
-                                if dispose_bg_possible != 0 {} else {
+                                if dispose_bg_possible != 0 {
+                                } else {
                                     __assert_fail(
                                         b"dispose_bg_possible\0" as *const u8
                                             as *const ::core::ffi::c_char,
@@ -2810,9 +2784,7 @@ unsafe extern "C" fn SetFrame(
             while i < CANDIDATE_COUNT as ::core::ffi::c_int {
                 if candidates[i as usize].evaluate_ != 0 {
                     WebPMemoryWriterClear(
-                        &raw mut (*(&raw mut candidates as *mut Candidate)
-                            .offset(i as isize))
-                            .mem_,
+                        &raw mut (*(&raw mut candidates as *mut Candidate).offset(i as isize)).mem_,
                     );
                 }
                 i += 1;
@@ -2853,10 +2825,10 @@ unsafe extern "C" fn CacheFrame(
             current_block = 11813081686126766169;
         } else {
             '_c2rust_label: {
-                if frame_skipped == 0 as ::core::ffi::c_int {} else {
+                if frame_skipped == 0 as ::core::ffi::c_int {
+                } else {
                     __assert_fail(
-                        b"frame_skipped == 0\0" as *const u8
-                            as *const ::core::ffi::c_char,
+                        b"frame_skipped == 0\0" as *const u8 as *const ::core::ffi::c_char,
                         b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                             as *const u8 as *const ::core::ffi::c_char,
                         1208 as ::core::ffi::c_uint,
@@ -2866,7 +2838,8 @@ unsafe extern "C" fn CacheFrame(
                 }
             };
             '_c2rust_label_0: {
-                if position == 0 as size_t && (*enc).count_ == 1 as size_t {} else {
+                if position == 0 as size_t && (*enc).count_ == 1 as size_t {
+                } else {
                     __assert_fail(
                         b"position == 0 && enc->count_ == 1\0" as *const u8
                             as *const ::core::ffi::c_char,
@@ -2948,7 +2921,8 @@ unsafe extern "C" fn CacheFrame(
                     current_block = 11813081686126766169;
                 } else {
                     '_c2rust_label_1: {
-                        if frame_skipped == 0 as ::core::ffi::c_int {} else {
+                        if frame_skipped == 0 as ::core::ffi::c_int {
+                        } else {
                             __assert_fail(
                                 b"frame_skipped == 0\0" as *const u8
                                     as *const ::core::ffi::c_char,
@@ -2964,12 +2938,11 @@ unsafe extern "C" fn CacheFrame(
                     curr_delta = KeyFramePenalty(encoded_frame);
                     if curr_delta <= (*enc).best_delta_ {
                         if (*enc).keyframe_ != KEYFRAME_NONE {
-                            let old_keyframe: *mut EncodedFrame = GetFrame(
-                                enc,
-                                (*enc).keyframe_ as size_t,
-                            ) as *mut EncodedFrame;
+                            let old_keyframe: *mut EncodedFrame =
+                                GetFrame(enc, (*enc).keyframe_ as size_t) as *mut EncodedFrame;
                             '_c2rust_label_2: {
-                                if (*old_keyframe).is_key_frame_ != 0 {} else {
+                                if (*old_keyframe).is_key_frame_ != 0 {
+                                } else {
                                     __assert_fail(
                                         b"old_keyframe->is_key_frame_\0" as *const u8
                                             as *const ::core::ffi::c_char,
@@ -3045,15 +3018,15 @@ unsafe extern "C" fn CacheFrame(
         if ok != 0
             || error_code as ::core::ffi::c_uint
                 != VP8_ENC_OK as ::core::ffi::c_int as ::core::ffi::c_uint
-        {} else {
+        {
+        } else {
             __assert_fail(
-                b"ok || error_code != VP8_ENC_OK\0" as *const u8
-                    as *const ::core::ffi::c_char,
+                b"ok || error_code != VP8_ENC_OK\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 1292 as ::core::ffi::c_uint,
-                b"int CacheFrame(WebPAnimEncoder *const, const WebPConfig *const)\0"
-                    as *const u8 as *const ::core::ffi::c_char,
+                b"int CacheFrame(WebPAnimEncoder *const, const WebPConfig *const)\0" as *const u8
+                    as *const ::core::ffi::c_char,
             );
         }
     };
@@ -3069,7 +3042,8 @@ unsafe extern "C" fn FlushFrames(enc: *mut WebPAnimEncoder) -> ::core::ffi::c_in
             &raw mut (*curr).sub_frame_
         };
         '_c2rust_label: {
-            if !(*enc).mux_.is_null() {} else {
+            if !(*enc).mux_.is_null() {
+            } else {
                 __assert_fail(
                     b"enc->mux_ != NULL\0" as *const u8 as *const ::core::ffi::c_char,
                     b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
@@ -3084,8 +3058,7 @@ unsafe extern "C" fn FlushFrames(enc: *mut WebPAnimEncoder) -> ::core::ffi::c_in
         if err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int {
             MarkError2(
                 enc,
-                b"ERROR adding frame. WebPMuxError\0" as *const u8
-                    as *const ::core::ffi::c_char,
+                b"ERROR adding frame. WebPMuxError\0" as *const u8 as *const ::core::ffi::c_char,
                 err as ::core::ffi::c_int,
             );
             return 0 as ::core::ffi::c_int;
@@ -3115,13 +3088,12 @@ unsafe extern "C" fn FlushFrames(enc: *mut WebPAnimEncoder) -> ::core::ffi::c_in
         let mut temp: EncodedFrame = *(*enc)
             .encoded_frames_
             .offset(0 as ::core::ffi::c_int as isize);
-        *(*enc).encoded_frames_.offset(0 as ::core::ffi::c_int as isize) = *(*enc)
+        *(*enc)
             .encoded_frames_
-            .offset(enc_start_tmp as isize);
+            .offset(0 as ::core::ffi::c_int as isize) =
+            *(*enc).encoded_frames_.offset(enc_start_tmp as isize);
         *(*enc).encoded_frames_.offset(enc_start_tmp as isize) = temp;
-        FrameRelease(
-            (*enc).encoded_frames_.offset(enc_start_tmp as isize) as *mut EncodedFrame,
-        );
+        FrameRelease((*enc).encoded_frames_.offset(enc_start_tmp as isize) as *mut EncodedFrame);
         (*enc).start_ = 0 as size_t;
     }
     return 1 as ::core::ffi::c_int;
@@ -3170,8 +3142,8 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
     }
     MarkNoError(enc);
     if (*enc).is_first_frame_ == 0 {
-        let prev_frame_duration: uint32_t = (timestamp as uint32_t)
-            .wrapping_sub((*enc).prev_timestamp_ as uint32_t);
+        let prev_frame_duration: uint32_t =
+            (timestamp as uint32_t).wrapping_sub((*enc).prev_timestamp_ as uint32_t);
         if prev_frame_duration >= MAX_DURATION as uint32_t {
             if !frame.is_null() {
                 (*frame).error_code = VP8_ENC_ERROR_INVALID_CONFIGURATION;
@@ -3183,8 +3155,7 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
             );
             return 0 as ::core::ffi::c_int;
         }
-        if IncreasePreviousDuration(enc, prev_frame_duration as ::core::ffi::c_int) == 0
-        {
+        if IncreasePreviousDuration(enc, prev_frame_duration as ::core::ffi::c_int) == 0 {
             return 0 as ::core::ffi::c_int;
         }
         if (*enc).count_ == (*enc).size_ && FlushFrames(enc) == 0 {
@@ -3198,8 +3169,7 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
         (*enc).prev_timestamp_ = timestamp;
         return 1 as ::core::ffi::c_int;
     }
-    if (*frame).width != (*enc).canvas_width_ || (*frame).height != (*enc).canvas_height_
-    {
+    if (*frame).width != (*enc).canvas_width_ || (*frame).height != (*enc).canvas_height_ {
         (*frame).error_code = VP8_ENC_ERROR_INVALID_CONFIGURATION;
         MarkError(
             enc,
@@ -3240,7 +3210,8 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
         config.lossless = 1 as ::core::ffi::c_int;
     }
     '_c2rust_label: {
-        if (*enc).curr_canvas_.is_null() {} else {
+        if (*enc).curr_canvas_.is_null() {
+        } else {
             __assert_fail(
                 b"enc->curr_canvas_ == NULL\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -3254,7 +3225,8 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
     };
     (*enc).curr_canvas_ = frame;
     '_c2rust_label_0: {
-        if (*enc).curr_canvas_copy_modified_ == 1 as ::core::ffi::c_int {} else {
+        if (*enc).curr_canvas_copy_modified_ == 1 as ::core::ffi::c_int {
+        } else {
             __assert_fail(
                 b"enc->curr_canvas_copy_modified_ == 1\0" as *const u8
                     as *const ::core::ffi::c_char,
@@ -3267,8 +3239,7 @@ pub unsafe extern "C" fn WebPAnimEncoderAdd(
         }
     };
     CopyCurrentCanvas(enc);
-    ok = (CacheFrame(enc, &raw mut config) != 0 && FlushFrames(enc) != 0)
-        as ::core::ffi::c_int;
+    ok = (CacheFrame(enc, &raw mut config) != 0 && FlushFrames(enc) != 0) as ::core::ffi::c_int;
     (*enc).curr_canvas_ = ::core::ptr::null_mut::<WebPPicture>();
     (*enc).curr_canvas_copy_modified_ = 1 as ::core::ffi::c_int;
     if ok != 0 {
@@ -3357,8 +3328,7 @@ unsafe extern "C" fn DecodeFrameOntoCanvas(
     };
     WebPInitDecoderConfig(&raw mut config);
     WebPUtilClearPic(canvas, ::core::ptr::null::<FrameRectangle>());
-    if WebPGetFeatures((*image).bytes, (*image).size, &raw mut config.input)
-        as ::core::ffi::c_uint
+    if WebPGetFeatures((*image).bytes, (*image).size, &raw mut config.input) as ::core::ffi::c_uint
         != VP8_STATUS_OK as ::core::ffi::c_int as ::core::ffi::c_uint
     {
         return 0 as ::core::ffi::c_int;
@@ -3378,8 +3348,7 @@ unsafe extern "C" fn DecodeFrameOntoCanvas(
     config.output.colorspace = MODE_BGRA;
     config.output.u.RGBA.rgba = sub_image.argb as *mut uint8_t;
     config.output.u.RGBA.stride = sub_image.argb_stride * 4 as ::core::ffi::c_int;
-    config.output.u.RGBA.size = (config.output.u.RGBA.stride * sub_image.height)
-        as size_t;
+    config.output.u.RGBA.size = (config.output.u.RGBA.stride * sub_image.height) as size_t;
     if WebPDecode((*image).bytes, (*image).size, &raw mut config) as ::core::ffi::c_uint
         != VP8_STATUS_OK as ::core::ffi::c_int as ::core::ffi::c_uint
     {
@@ -3469,16 +3438,15 @@ unsafe extern "C" fn OptimizeSingleFrame(
         bytes: ::core::ptr::null::<uint8_t>(),
         size: 0,
     };
-    let mux: *mut WebPMux = WebPMuxCreate(webp_data, 0 as ::core::ffi::c_int)
-        as *mut WebPMux;
+    let mux: *mut WebPMux = WebPMuxCreate(webp_data, 0 as ::core::ffi::c_int) as *mut WebPMux;
     if mux.is_null() {
         return WEBP_MUX_BAD_DATA;
     }
     '_c2rust_label: {
-        if (*enc).out_frame_count_ == 1 as size_t {} else {
+        if (*enc).out_frame_count_ == 1 as size_t {
+        } else {
             __assert_fail(
-                b"enc->out_frame_count_ == 1\0" as *const u8
-                    as *const ::core::ffi::c_char,
+                b"enc->out_frame_count_ == 1\0" as *const u8 as *const ::core::ffi::c_char,
                 b"/home/yans/code/safelibs/ported/libwebp/original/src/mux/anim_encode.c\0"
                     as *const u8 as *const ::core::ffi::c_char,
                 1490 as ::core::ffi::c_uint,
@@ -3495,26 +3463,15 @@ unsafe extern "C" fn OptimizeSingleFrame(
         if !(frame.id as ::core::ffi::c_uint
             != WEBP_CHUNK_ANMF as ::core::ffi::c_int as ::core::ffi::c_uint)
         {
-            err = WebPMuxGetCanvasSize(
-                mux,
-                &raw mut canvas_width,
-                &raw mut canvas_height,
-            );
+            err = WebPMuxGetCanvasSize(mux, &raw mut canvas_width, &raw mut canvas_height);
             if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
                 if FrameToFullCanvas(enc, &raw mut frame, &raw mut full_image) == 0 {
                     err = WEBP_MUX_BAD_DATA;
                 } else {
-                    err = WebPMuxSetImage(
-                        mux,
-                        &raw mut full_image,
-                        1 as ::core::ffi::c_int,
-                    );
-                    if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int)
-                    {
+                    err = WebPMuxSetImage(mux, &raw mut full_image, 1 as ::core::ffi::c_int);
+                    if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
                         err = WebPMuxAssemble(mux, &raw mut webp_data2);
-                        if !(err as ::core::ffi::c_int
-                            != WEBP_MUX_OK as ::core::ffi::c_int)
-                        {
+                        if !(err as ::core::ffi::c_int != WEBP_MUX_OK as ::core::ffi::c_int) {
                             if webp_data2.size < (*webp_data).size {
                                 WebPDataClear(webp_data);
                                 *webp_data = webp_data2;
@@ -3558,11 +3515,13 @@ pub unsafe extern "C" fn WebPAnimEncoderAssemble(
         );
         return 0 as ::core::ffi::c_int;
     }
-    if (*enc).got_null_frame_ == 0 && (*enc).in_frame_count_ > 1 as size_t
+    if (*enc).got_null_frame_ == 0
+        && (*enc).in_frame_count_ > 1 as size_t
         && (*enc).count_ > 0 as size_t
     {
         let delta_time: ::core::ffi::c_double = ((*enc).prev_timestamp_ as uint32_t)
-            .wrapping_sub((*enc).first_timestamp_ as uint32_t) as ::core::ffi::c_double;
+            .wrapping_sub((*enc).first_timestamp_ as uint32_t)
+            as ::core::ffi::c_double;
         let average_duration: ::core::ffi::c_int = (delta_time
             / (*enc).in_frame_count_.wrapping_sub(1 as size_t) as ::core::ffi::c_double)
             as ::core::ffi::c_int;
@@ -3625,9 +3584,7 @@ unsafe extern "C" fn WebPConfigInit(mut config: *mut WebPConfig) -> ::core::ffi:
     );
 }
 #[inline]
-unsafe extern "C" fn WebPPictureInit(
-    mut picture: *mut WebPPicture,
-) -> ::core::ffi::c_int {
+unsafe extern "C" fn WebPPictureInit(mut picture: *mut WebPPicture) -> ::core::ffi::c_int {
     return WebPPictureInitInternal(picture, WEBP_ENCODER_ABI_VERSION);
 }
 pub const WEBP_DECODER_ABI_VERSION: ::core::ffi::c_int = 0x209 as ::core::ffi::c_int;
@@ -3645,12 +3602,9 @@ unsafe extern "C" fn WebPInitDecoderConfig(
 ) -> ::core::ffi::c_int {
     return WebPInitDecoderConfigInternal(config, WEBP_DECODER_ABI_VERSION);
 }
-pub const MAX_IMAGE_AREA: ::core::ffi::c_ulonglong = (1 as ::core::ffi::c_ulonglong)
-    << 32 as ::core::ffi::c_int;
-pub const MAX_DURATION: ::core::ffi::c_int = (1 as ::core::ffi::c_int)
-    << 24 as ::core::ffi::c_int;
+pub const MAX_IMAGE_AREA: ::core::ffi::c_ulonglong =
+    (1 as ::core::ffi::c_ulonglong) << 32 as ::core::ffi::c_int;
+pub const MAX_DURATION: ::core::ffi::c_int = (1 as ::core::ffi::c_int) << 24 as ::core::ffi::c_int;
 pub const INT_MAX: ::core::ffi::c_int = __INT_MAX__;
-pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<
-    ::core::ffi::c_void,
->();
+pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 pub const __INT_MAX__: ::core::ffi::c_int = 2147483647 as ::core::ffi::c_int;

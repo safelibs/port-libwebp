@@ -4,6 +4,10 @@ use webp_core::encode::picture_enc::{
     WebPMemoryWrite, WebPMemoryWriter, WebPPicture, WebPPictureAlloc, WebPPictureInitInternal,
     VP8_ENC_ERROR_OUT_OF_MEMORY, WEBP_ENCODER_ABI_VERSION, WEBP_YUV420A,
 };
+use webp_core::mux::anim_encode::{
+    WebPAnimEncoderDelete, WebPAnimEncoderNewInternal, WebPAnimEncoderOptions,
+    WebPAnimEncoderOptionsInitInternal, MAX_CACHED_FRAMES, WEBP_MUX_ABI_VERSION,
+};
 
 #[test]
 fn cve_2016_9085() {
@@ -69,4 +73,49 @@ fn oversized_picture_alloc_yuva() {
     assert!(picture.u.is_null());
     assert!(picture.v.is_null());
     assert!(picture.a.is_null());
+}
+
+#[test]
+fn anim_encoder_rejects_oversized_canvas() {
+    let mut options = unsafe { mem::zeroed::<WebPAnimEncoderOptions>() };
+
+    assert_eq!(
+        unsafe { WebPAnimEncoderOptionsInitInternal(&mut options, WEBP_MUX_ABI_VERSION) },
+        1
+    );
+    assert!(unsafe {
+        WebPAnimEncoderNewInternal(1 << 16, 1 << 16, &options, WEBP_MUX_ABI_VERSION)
+    }
+    .is_null());
+    assert!(
+        unsafe { WebPAnimEncoderNewInternal(i32::MAX, 3, &options, WEBP_MUX_ABI_VERSION) }
+            .is_null()
+    );
+}
+
+#[test]
+fn anim_encoder_sanitizes_cached_frame_window() {
+    let mut options = unsafe { mem::zeroed::<WebPAnimEncoderOptions>() };
+
+    assert_eq!(
+        unsafe { WebPAnimEncoderOptionsInitInternal(&mut options, WEBP_MUX_ABI_VERSION) },
+        1
+    );
+    options.kmin = 0;
+    options.kmax = i32::MAX;
+
+    let enc = unsafe { WebPAnimEncoderNewInternal(1, 1, &options, WEBP_MUX_ABI_VERSION) };
+    assert!(!enc.is_null());
+
+    unsafe {
+        assert_eq!((*enc).options_.kmax, i32::MAX);
+        assert_eq!((*enc).options_.kmin, i32::MAX - MAX_CACHED_FRAMES);
+        assert_eq!(
+            (*enc).options_.kmax - (*enc).options_.kmin,
+            MAX_CACHED_FRAMES
+        );
+        assert_eq!((*enc).size_, (MAX_CACHED_FRAMES + 1) as usize);
+        assert!(!(*enc).encoded_frames_.is_null());
+        WebPAnimEncoderDelete(enc);
+    }
 }
