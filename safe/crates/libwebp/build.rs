@@ -182,7 +182,10 @@ fn link_webp_core_roots() {
         fs::remove_file(&archive_path).expect("failed to remove stale webp-core roots archive");
     }
 
-    let object_paths: Vec<_> = object_members.iter().map(|member| extract_dir.join(member)).collect();
+    let object_paths: Vec<_> = object_members
+        .iter()
+        .map(|member| extract_dir.join(member))
+        .collect();
     let status = Command::new(&ar)
         .arg("crs")
         .arg(&archive_path)
@@ -199,13 +202,20 @@ fn link_webp_core_roots() {
 }
 
 fn find_webp_core_rlib(deps_dir: &Path) -> PathBuf {
-    let profile_dir = deps_dir.parent().expect("deps directory was missing its profile parent");
+    let profile_dir = deps_dir
+        .parent()
+        .expect("deps directory was missing its profile parent");
     let fingerprint_dir = profile_dir.join(".fingerprint");
 
-    for entry in fs::read_dir(&fingerprint_dir).expect("failed to read target fingerprint directory") {
+    for entry in
+        fs::read_dir(&fingerprint_dir).expect("failed to read target fingerprint directory")
+    {
         let entry = entry.expect("failed to read target fingerprint entry");
         let path = entry.path();
-        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         if !file_name.starts_with("webp-core-") {
             continue;
         }
@@ -213,12 +223,11 @@ fn find_webp_core_rlib(deps_dir: &Path) -> PathBuf {
         if !metadata_path.exists() {
             continue;
         }
-        let metadata: serde_json::Value =
-            from_str(&fs::read_to_string(&metadata_path).expect("failed to read webp-core fingerprint"))
-                .expect("failed to parse webp-core fingerprint");
-        if metadata
-            .get("features")
-            .and_then(|value| value.as_str())
+        let metadata: serde_json::Value = from_str(
+            &fs::read_to_string(&metadata_path).expect("failed to read webp-core fingerprint"),
+        )
+        .expect("failed to parse webp-core fingerprint");
+        if metadata.get("features").and_then(|value| value.as_str())
             != Some("[\"decode\", \"encode\"]")
         {
             continue;

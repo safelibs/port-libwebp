@@ -1040,7 +1040,8 @@ pub fn build_upstream_fuzzers(args: &BuildUpstreamFuzzersArgs) -> Result<()> {
 pub fn unsafe_audit(_args: &UnsafeAuditArgs) -> Result<()> {
     let root = workspace_root();
     let files = collect_unsafe_files(&root)?;
-    let report = render_unsafe_audit(&root, &files);
+    let lint_exceptions = collect_unsafe_lint_exceptions(&root)?;
+    let report = render_unsafe_audit(&root, &files, &lint_exceptions);
     let docs_dir = root.join("docs");
     fs::create_dir_all(&docs_dir)
         .with_context(|| format!("failed to create {}", docs_dir.display()))?;
@@ -1824,7 +1825,38 @@ fn categorize_unsafe_path(path: &Path) -> Option<UnsafeCategory> {
     None
 }
 
-fn render_unsafe_audit(root: &Path, files: &[UnsafeFile]) -> String {
+fn collect_unsafe_lint_exceptions(root: &Path) -> Result<Vec<PathBuf>> {
+    let needle = "allow(unsafe_op_in_unsafe_fn)";
+    let mut paths = Vec::new();
+
+    for entry in walkdir::WalkDir::new(root) {
+        let entry = entry?;
+        let path = entry.path();
+        if !entry.file_type().is_file()
+            || path.extension().and_then(|extension| extension.to_str()) != Some("rs")
+            || skip_audit_path(path.strip_prefix(root).unwrap_or(path))
+        {
+            continue;
+        }
+
+        let contents = fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        if !contents.contains(needle) {
+            continue;
+        }
+
+        paths.push(
+            path.strip_prefix(root)
+                .with_context(|| format!("failed to relativize {}", path.display()))?
+                .to_path_buf(),
+        );
+    }
+
+    paths.sort();
+    Ok(paths)
+}
+
+fn render_unsafe_audit(root: &Path, files: &[UnsafeFile], lint_exceptions: &[PathBuf]) -> String {
     let total_occurrences = files.iter().map(|file| file.occurrences).sum::<usize>();
     let mut report = String::new();
 
@@ -1849,6 +1881,23 @@ fn render_unsafe_audit(root: &Path, files: &[UnsafeFile]) -> String {
     report.push_str(
         "- `xtask/`, Debian/package glue, the transliterated codec internals, and the new C regression test remain free of explicit Rust `unsafe` operations.\n\n",
     );
+
+    if !lint_exceptions.is_empty() {
+        report.push_str("## Lint Exceptions\n");
+        if lint_exceptions == [PathBuf::from("crates/webp-core/src/lib.rs")] {
+            report.push_str(
+                "- `crates/webp-core/src/lib.rs` keeps `#![allow(unsafe_op_in_unsafe_fn)]`. Removing it would require mechanically wrapping a large number of translated `unsafe fn` bodies inside the codec internals, so this phase keeps the allowance explicit and reviews the narrower boundary through the explicit `unsafe {}` inventory above. No other crate-wide `unsafe_op_in_unsafe_fn` allowances are present.\n\n",
+            );
+        } else {
+            report.push_str(
+                "- The following files still carry `allow(unsafe_op_in_unsafe_fn)` and must remain justified until the transliterated internals can be narrowed further:\n",
+            );
+            for path in lint_exceptions {
+                report.push_str(&format!("  - `{}`\n", path.display()));
+            }
+            report.push('\n');
+        }
+    }
 
     report.push_str("## Categories\n");
     for category in [

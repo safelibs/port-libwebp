@@ -6,15 +6,18 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 
 ## Summary
 - Files containing `unsafe`: 16
-- `unsafe` occurrences: 268
+- `unsafe` occurrences: 279
 - `xtask/`, Debian/package glue, the transliterated codec internals, and the new C regression test remain free of explicit Rust `unsafe` operations.
+
+## Lint Exceptions
+- `crates/webp-core/src/lib.rs` keeps `#![allow(unsafe_op_in_unsafe_fn)]`. Removing it would require mechanically wrapping a large number of translated `unsafe fn` bodies inside the codec internals, so this phase keeps the allowance explicit and reviews the narrower boundary through the explicit `unsafe {}` inventory above. No other crate-wide `unsafe_op_in_unsafe_fn` allowances are present.
 
 ## Categories
 - Exported ABI Shims: 5 files / 98 occurrences. No-mangle entry points, panic abort handlers, and exported global-object symbols.
 - Runtime Globals And Scaffolding: 3 files / 32 occurrences. Global allocator hooks, worker-interface state, CPU callback defaults, and compatibility stubs.
 - Demux ABI Adapters: 2 files / 101 occurrences. Pointer conversions confined to the demux public C ABI adapters.
 - SharpYuv ABI Adapters: 4 files / 27 occurrences. Pointer conversions confined to the SharpYuv public C ABI adapters.
-- Regression Tests: 2 files / 10 occurrences. Intentional test-only calls into unsafe C ABI entry points and zeroed layouts.
+- Regression Tests: 2 files / 21 occurrences. Intentional test-only calls into unsafe C ABI entry points and zeroed layouts.
 
 ## Inventory
 | Path | Category | Count | Lines |
@@ -33,5 +36,5 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 | `crates/webp-core/src/sharpyuv/gamma.rs` | SharpYuv ABI Adapters | 5 | 49, 66, 73, 118, 134 |
 | `crates/webp-core/src/sharpyuv/mod.rs` | SharpYuv ABI Adapters | 2 | 47, 79 |
 | `crates/webp-core/src/threading.rs` | Runtime Globals And Scaffolding | 8 | 49, 69, 77, 93, 102, 110, 132, 143 |
-| `crates/webp-core/tests/encode_security.rs` | Regression Tests | 6 | 16, 19, 26, 36, 39, 46 |
+| `crates/webp-core/tests/encode_security.rs` | Regression Tests | 17 | 20, 23, 30, 40, 43, 50, 58, 61, 69, 80, 83, 86, ... |
 | `crates/webp-core/tests/malformed_huffman_tables.rs` | Regression Tests | 4 | 8, 13, 21, 25 |

@@ -1,8 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 
+use core::ffi::c_void;
 #[cfg(debug_assertions)]
 use core::ffi::{c_float, c_int};
-use core::ffi::c_void;
 use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
 
 #[cfg(debug_assertions)]
