@@ -15,6 +15,7 @@ use crate::tools::{
 use anyhow::{bail, Context, Result};
 use clap::Args;
 use regex::Regex;
+use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Component;
@@ -38,6 +39,12 @@ pub struct VerifyInstallTreeArgs {
     pub baseline: PathBuf,
     #[arg(long, value_name = "DIR")]
     pub package_dir: PathBuf,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct VerifyDependentsMetadataArgs {
+    #[arg(long)]
+    pub path: PathBuf,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -353,6 +360,74 @@ const ENCODE_SYMBOLS: &[ExpectedSymbol] = &[
     },
 ];
 
+const EXPECTED_DEPENDENT_TRIPLETS: &[(&str, &str, &str)] = &[
+    ("GIMP", "gimp", "gimp"),
+    ("Pillow", "pillow", "python3-pil"),
+    ("WebKitGTK", "webkit2gtk", "libwebkit2gtk-4.1-0"),
+    (
+        "Qt 6 Image Formats Plugins",
+        "qt6-imageformats",
+        "qt6-image-formats-plugins",
+    ),
+    ("SDL2_image", "libsdl2-image", "libsdl2-image-2.0-0"),
+    ("libvips", "vips", "libvips42t64"),
+    ("GNU Emacs (GTK build)", "emacs", "emacs-gtk"),
+    ("Shotwell", "shotwell", "shotwell"),
+    ("LibreOffice", "libreoffice", "libreoffice-core"),
+    ("FFmpeg libavcodec", "ffmpeg", "libavcodec60"),
+    (
+        "webp-pixbuf-loader",
+        "webp-pixbuf-loader",
+        "webp-pixbuf-loader",
+    ),
+    ("SAIL codecs", "sail", "sail-codecs"),
+];
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DependentsMetadata {
+    schema_version: u64,
+    generated_on: String,
+    ubuntu_release: String,
+    metadata_source: String,
+    libwebp_package_versions: DependentsPackageVersions,
+    selection_policy: String,
+    method: Vec<String>,
+    dependents: Vec<DependentMetadataEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DependentsPackageVersions {
+    libwebp7: String,
+    libwebpdecoder3: String,
+    libwebpdemux2: String,
+    libwebpmux3: String,
+    #[serde(rename = "libwebp-dev")]
+    libwebp_dev: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DependentMetadataEntry {
+    name: String,
+    source_package: String,
+    runtime_package: String,
+    category: String,
+    runtime_depends_on: Vec<String>,
+    build_depends_on: Vec<String>,
+    runtime_functionality: String,
+    runtime_evidence_level: RuntimeEvidenceLevel,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+enum RuntimeEvidenceLevel {
+    #[serde(rename = "explicit")]
+    Explicit,
+    #[serde(rename = "inferred")]
+    Inferred,
+}
+
 pub fn verify_baseline_manifests(baseline_dir: &Path) -> Result<()> {
     verify_export_files(baseline_dir)?;
 
@@ -456,6 +531,11 @@ pub fn verify_baseline_manifests(baseline_dir: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn verify_dependents_metadata(args: &VerifyDependentsMetadataArgs) -> Result<()> {
+    let metadata = read_json::<DependentsMetadata>(&args.path)?;
+    validate_dependents_metadata(&metadata)
 }
 
 pub fn verify_needed(args: &VerifyNeededArgs) -> Result<()> {
@@ -2049,6 +2129,119 @@ fn assert_library_keys(label: &str, actual: Vec<String>) -> Result<()> {
             expected,
             actual
         );
+    }
+    Ok(())
+}
+
+fn validate_dependents_metadata(metadata: &DependentsMetadata) -> Result<()> {
+    if metadata.schema_version == 0 {
+        bail!("dependents metadata schema_version must be greater than zero");
+    }
+    require_nonempty_metadata_field("generated_on", &metadata.generated_on)?;
+    require_nonempty_metadata_field("ubuntu_release", &metadata.ubuntu_release)?;
+    require_nonempty_metadata_field("metadata_source", &metadata.metadata_source)?;
+    require_nonempty_metadata_field("selection_policy", &metadata.selection_policy)?;
+    validate_dependents_package_versions(&metadata.libwebp_package_versions)?;
+
+    if metadata.method.is_empty() {
+        bail!("dependents metadata method list must not be empty");
+    }
+    for (index, step) in metadata.method.iter().enumerate() {
+        require_nonempty_metadata_field(&format!("method[{index}]"), step)?;
+    }
+
+    if metadata.dependents.len() != EXPECTED_DEPENDENT_TRIPLETS.len() {
+        bail!(
+            "dependents metadata must contain exactly {} entries, found {}",
+            EXPECTED_DEPENDENT_TRIPLETS.len(),
+            metadata.dependents.len()
+        );
+    }
+
+    let actual_triplets = metadata
+        .dependents
+        .iter()
+        .map(|entry| {
+            (
+                entry.name.as_str(),
+                entry.source_package.as_str(),
+                entry.runtime_package.as_str(),
+            )
+        })
+        .collect::<Vec<_>>();
+    if actual_triplets != EXPECTED_DEPENDENT_TRIPLETS {
+        let expected = EXPECTED_DEPENDENT_TRIPLETS
+            .iter()
+            .map(|(name, source_package, runtime_package)| {
+                format!("{name}|{source_package}|{runtime_package}")
+            })
+            .collect::<Vec<_>>();
+        let actual = actual_triplets
+            .iter()
+            .map(|(name, source_package, runtime_package)| {
+                format!("{name}|{source_package}|{runtime_package}")
+            })
+            .collect::<Vec<_>>();
+        bail!(
+            "dependents inventory mismatch: expected {:?}, found {:?}",
+            expected,
+            actual
+        );
+    }
+
+    for entry in &metadata.dependents {
+        require_nonempty_metadata_field("dependents[].name", &entry.name)?;
+        require_nonempty_metadata_field("dependents[].source_package", &entry.source_package)?;
+        require_nonempty_metadata_field("dependents[].runtime_package", &entry.runtime_package)?;
+        require_nonempty_metadata_field("dependents[].category", &entry.category)?;
+        require_nonempty_metadata_field(
+            "dependents[].runtime_functionality",
+            &entry.runtime_functionality,
+        )?;
+        require_nonempty_string_list("dependents[].runtime_depends_on", &entry.runtime_depends_on)?;
+        require_nonempty_string_list("dependents[].build_depends_on", &entry.build_depends_on)?;
+        match entry.runtime_evidence_level {
+            RuntimeEvidenceLevel::Explicit | RuntimeEvidenceLevel::Inferred => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_dependents_package_versions(versions: &DependentsPackageVersions) -> Result<()> {
+    require_nonempty_metadata_field("libwebp_package_versions.libwebp7", &versions.libwebp7)?;
+    require_nonempty_metadata_field(
+        "libwebp_package_versions.libwebpdecoder3",
+        &versions.libwebpdecoder3,
+    )?;
+    require_nonempty_metadata_field(
+        "libwebp_package_versions.libwebpdemux2",
+        &versions.libwebpdemux2,
+    )?;
+    require_nonempty_metadata_field(
+        "libwebp_package_versions.libwebpmux3",
+        &versions.libwebpmux3,
+    )?;
+    require_nonempty_metadata_field(
+        "libwebp_package_versions.libwebp-dev",
+        &versions.libwebp_dev,
+    )?;
+    Ok(())
+}
+
+fn require_nonempty_metadata_field(label: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        bail!("dependents metadata field `{label}` must not be empty");
+    }
+    Ok(())
+}
+
+fn require_nonempty_string_list(label: &str, values: &[String]) -> Result<()> {
+    if values.is_empty() {
+        bail!("dependents metadata list `{label}` must not be empty");
+    }
+    for (index, value) in values.iter().enumerate() {
+        require_nonempty_metadata_field(&format!("{label}[{index}]"), value)?;
     }
     Ok(())
 }

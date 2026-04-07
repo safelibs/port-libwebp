@@ -9,7 +9,7 @@ SAFE_DEB_DIR="${LIBWEBP_SAFE_DEB_DIR:-}"
 
 usage() {
   cat <<'EOF'
-usage: test-original.sh [--variant <original|safe>] [--only <name|runtime-package|source-package|slug|tools|tool:name>]
+usage: test-original.sh [--variant <original|safe>] [--only <name|runtime-package|source-package|slug|tools|tool:name|pkg-config-libwebp|pkg-config-libsharpyuv|pkg-config-libwebpdecoder|pkg-config-libwebpdemux|pkg-config-libwebpmux|cmake-webp>]
 
 In `original` mode, builds the checked-in original libwebp inside an Ubuntu 24.04
 Docker container and installs it into /usr/local inside that container.
@@ -18,6 +18,10 @@ $LIBWEBP_SAFE_DEB_DIR inside that same container.
 
 The harness runs an explicit tool-smoke matrix before dependent checks.
 `--only tools` runs just the tool matrix, and `--only tool:<name>` runs one tool smoke.
+The direct installed-surface probes are addressable through `--only` by their
+explicit names: `pkg-config-libwebp`, `pkg-config-libsharpyuv`,
+`pkg-config-libwebpdecoder`, `pkg-config-libwebpdemux`, `pkg-config-libwebpmux`,
+and `cmake-webp`.
 EOF
 }
 
@@ -157,6 +161,7 @@ ACTIVE_LIBDIR=""
 EXPECTED_LIBRARY_PREFIX=""
 MATCHED_DEPENDENT=0
 MATCHED_TOOL=0
+MATCHED_DIRECT_CHECK=0
 
 mkdir -p "$HOME" "$XDG_RUNTIME_DIR" "$FIXTURE_DIR" "$TEST_ROOT"
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -256,7 +261,7 @@ should_run() {
     return 0
   fi
 
-  if [[ "$ONLY_FILTER" == tools || "$ONLY_FILTER" == tool:* ]]; then
+  if [[ "$ONLY_FILTER" == tools || "$ONLY_FILTER" == tool:* ]] || is_direct_check_name "$ONLY_FILTER"; then
     return 1
   fi
 
@@ -264,6 +269,17 @@ should_run() {
     || "$ONLY_FILTER" == "$name" \
     || "$ONLY_FILTER" == "$runtime_package" \
     || "$ONLY_FILTER" == "$source_package" ]]
+}
+
+is_direct_check_name() {
+  case "$1" in
+    pkg-config-libwebp|pkg-config-libsharpyuv|pkg-config-libwebpdecoder|pkg-config-libwebpdemux|pkg-config-libwebpmux|cmake-webp)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 run_check() {
@@ -297,6 +313,9 @@ should_run_tool() {
       [[ "$ONLY_FILTER" == "tool:$tool" ]]
       return
       ;;
+    pkg-config-libwebp|pkg-config-libsharpyuv|pkg-config-libwebpdecoder|pkg-config-libwebpdemux|pkg-config-libwebpmux|cmake-webp)
+      return 1
+      ;;
     *)
       return 0
       ;;
@@ -316,39 +335,154 @@ run_tool_check() {
   "$func"
 }
 
+should_run_direct_check() {
+  local name="$1"
+
+  if [[ -z "$ONLY_FILTER" ]]; then
+    return 0
+  fi
+
+  case "$ONLY_FILTER" in
+    tools|tool:*)
+      return 1
+      ;;
+    pkg-config-libwebp|pkg-config-libsharpyuv|pkg-config-libwebpdecoder|pkg-config-libwebpdemux|pkg-config-libwebpmux|cmake-webp)
+      [[ "$ONLY_FILTER" == "$name" ]]
+      return
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+run_direct_check() {
+  local name="$1"
+  local func="$2"
+
+  if ! should_run_direct_check "$name"; then
+    return 0
+  fi
+
+  MATCHED_DIRECT_CHECK=1
+  log_step "Installed surface: $name"
+  "$func"
+}
+
 validate_dependents_inventory() {
   python3 <<'PY'
 import json
 from pathlib import Path
 
-expected = [
-    {"name": "GIMP", "source_package": "gimp", "runtime_package": "gimp"},
-    {"name": "Pillow", "source_package": "pillow", "runtime_package": "python3-pil"},
-    {"name": "WebKitGTK", "source_package": "webkit2gtk", "runtime_package": "libwebkit2gtk-4.1-0"},
-    {"name": "Qt 6 Image Formats Plugins", "source_package": "qt6-imageformats", "runtime_package": "qt6-image-formats-plugins"},
-    {"name": "SDL2_image", "source_package": "libsdl2-image", "runtime_package": "libsdl2-image-2.0-0"},
-    {"name": "libvips", "source_package": "vips", "runtime_package": "libvips42t64"},
-    {"name": "GNU Emacs (GTK build)", "source_package": "emacs", "runtime_package": "emacs-gtk"},
-    {"name": "Shotwell", "source_package": "shotwell", "runtime_package": "shotwell"},
-    {"name": "LibreOffice", "source_package": "libreoffice", "runtime_package": "libreoffice-core"},
-    {"name": "FFmpeg libavcodec", "source_package": "ffmpeg", "runtime_package": "libavcodec60"},
-    {"name": "webp-pixbuf-loader", "source_package": "webp-pixbuf-loader", "runtime_package": "webp-pixbuf-loader"},
-    {"name": "SAIL codecs", "source_package": "sail", "runtime_package": "sail-codecs"},
+expected_top_level_keys = {
+    "schema_version",
+    "generated_on",
+    "ubuntu_release",
+    "metadata_source",
+    "libwebp_package_versions",
+    "selection_policy",
+    "method",
+    "dependents",
+}
+expected_package_version_keys = {
+    "libwebp7",
+    "libwebpdecoder3",
+    "libwebpdemux2",
+    "libwebpmux3",
+    "libwebp-dev",
+}
+expected_entry_keys = {
+    "name",
+    "source_package",
+    "runtime_package",
+    "category",
+    "runtime_depends_on",
+    "build_depends_on",
+    "runtime_functionality",
+    "runtime_evidence_level",
+}
+expected_triplets = [
+    ("GIMP", "gimp", "gimp"),
+    ("Pillow", "pillow", "python3-pil"),
+    ("WebKitGTK", "webkit2gtk", "libwebkit2gtk-4.1-0"),
+    ("Qt 6 Image Formats Plugins", "qt6-imageformats", "qt6-image-formats-plugins"),
+    ("SDL2_image", "libsdl2-image", "libsdl2-image-2.0-0"),
+    ("libvips", "vips", "libvips42t64"),
+    ("GNU Emacs (GTK build)", "emacs", "emacs-gtk"),
+    ("Shotwell", "shotwell", "shotwell"),
+    ("LibreOffice", "libreoffice", "libreoffice-core"),
+    ("FFmpeg libavcodec", "ffmpeg", "libavcodec60"),
+    ("webp-pixbuf-loader", "webp-pixbuf-loader", "webp-pixbuf-loader"),
+    ("SAIL codecs", "sail", "sail-codecs"),
 ]
 
 data = json.loads(Path("/work/dependents.json").read_text(encoding="utf-8"))
-actual = [
-    {
-        "name": entry["name"],
-        "source_package": entry["source_package"],
-        "runtime_package": entry["runtime_package"],
-    }
-    for entry in data["dependents"]
-]
 
-if actual != expected:
+if set(data.keys()) != expected_top_level_keys:
     raise SystemExit(
-        f"unexpected dependents.json contents: expected {expected}, found {actual}"
+        f"unexpected dependents.json top-level keys: expected {sorted(expected_top_level_keys)}, found {sorted(data.keys())}"
+    )
+
+if not isinstance(data["schema_version"], int) or data["schema_version"] <= 0:
+    raise SystemExit(f"schema_version must be a positive integer, found {data['schema_version']!r}")
+
+for field in ("generated_on", "ubuntu_release", "metadata_source", "selection_policy"):
+    value = data[field]
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"{field} must be a non-empty string, found {value!r}")
+
+versions = data["libwebp_package_versions"]
+if set(versions.keys()) != expected_package_version_keys:
+    raise SystemExit(
+        f"unexpected libwebp_package_versions keys: expected {sorted(expected_package_version_keys)}, found {sorted(versions.keys())}"
+    )
+for key, value in versions.items():
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"libwebp_package_versions[{key!r}] must be a non-empty string, found {value!r}")
+
+method = data["method"]
+if not isinstance(method, list) or not method:
+    raise SystemExit(f"method must be a non-empty string array, found {method!r}")
+for index, step in enumerate(method):
+    if not isinstance(step, str) or not step.strip():
+        raise SystemExit(f"method[{index}] must be a non-empty string, found {step!r}")
+
+dependents = data["dependents"]
+if not isinstance(dependents, list) or len(dependents) != len(expected_triplets):
+    raise SystemExit(
+        f"dependents must contain exactly {len(expected_triplets)} entries, found {len(dependents) if isinstance(dependents, list) else dependents!r}"
+    )
+
+actual_triplets = []
+for index, entry in enumerate(dependents):
+    if set(entry.keys()) != expected_entry_keys:
+        raise SystemExit(
+            f"unexpected dependent keys at index {index}: expected {sorted(expected_entry_keys)}, found {sorted(entry.keys())}"
+        )
+    for field in ("name", "source_package", "runtime_package", "category", "runtime_functionality"):
+        value = entry[field]
+        if not isinstance(value, str) or not value.strip():
+            raise SystemExit(f"dependents[{index}].{field} must be a non-empty string, found {value!r}")
+    for field in ("runtime_depends_on", "build_depends_on"):
+        value = entry[field]
+        if not isinstance(value, list) or not value:
+            raise SystemExit(f"dependents[{index}].{field} must be a non-empty string array, found {value!r}")
+        for item_index, item in enumerate(value):
+            if not isinstance(item, str) or not item.strip():
+                raise SystemExit(
+                    f"dependents[{index}].{field}[{item_index}] must be a non-empty string, found {item!r}"
+                )
+    if entry["runtime_evidence_level"] not in {"explicit", "inferred"}:
+        raise SystemExit(
+            f"dependents[{index}].runtime_evidence_level must be 'explicit' or 'inferred', found {entry['runtime_evidence_level']!r}"
+        )
+    actual_triplets.append(
+        (entry["name"], entry["source_package"], entry["runtime_package"])
+    )
+
+if actual_triplets != expected_triplets:
+    raise SystemExit(
+        f"unexpected dependents.json inventory: expected {expected_triplets}, found {actual_triplets}"
     )
 PY
 }
@@ -378,6 +512,8 @@ build_original_libwebp() {
   ACTIVE_LIBDIR="$(dirname "$libwebp_so")"
   EXPECTED_LIBRARY_PREFIX="$ACTIVE_LIBDIR"
   export LD_LIBRARY_PATH="$ACTIVE_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+  export CMAKE_PREFIX_PATH="/usr/local${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
 }
 
 install_safe_packages() {
@@ -515,6 +651,618 @@ ensure_metadata_webp_fixture() {
   require_nonempty_file "$FIXTURE_DIR/metadata.webp"
   require_nonempty_file "$FIXTURE_DIR/extracted.exif"
   cmp -s "$FIXTURE_DIR/shotwell.exif" "$FIXTURE_DIR/extracted.exif" || die "webpmux EXIF round-trip changed the metadata payload"
+}
+
+write_probe_common_header() {
+  local dir="$1"
+
+  cat >"$dir/probe_common.h" <<'C'
+#ifndef WEBP_PROBE_COMMON_H
+#define WEBP_PROBE_COMMON_H
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static int read_file_bytes(const char* path, uint8_t** bytes, size_t* size) {
+  FILE* file = fopen(path, "rb");
+  long length = 0;
+  size_t read_size = 0;
+  uint8_t* buffer = NULL;
+
+  if (file == NULL) return 0;
+  if (fseek(file, 0, SEEK_END) != 0) {
+    fclose(file);
+    return 0;
+  }
+  length = ftell(file);
+  if (length < 0) {
+    fclose(file);
+    return 0;
+  }
+  if (fseek(file, 0, SEEK_SET) != 0) {
+    fclose(file);
+    return 0;
+  }
+
+  buffer = (uint8_t*)malloc((size_t)length);
+  if (buffer == NULL) {
+    fclose(file);
+    return 0;
+  }
+
+  read_size = fread(buffer, 1, (size_t)length, file);
+  fclose(file);
+  if (read_size != (size_t)length) {
+    free(buffer);
+    return 0;
+  }
+
+  *bytes = buffer;
+  *size = read_size;
+  return 1;
+}
+
+#endif
+C
+}
+
+probe_pkg_config_libwebp() {
+  local dir
+
+  dir="$(reset_test_dir pkg-config-libwebp)"
+  write_probe_common_header "$dir"
+
+  cat >"$dir/libwebp_probe.c" <<'C'
+#include <stdio.h>
+#include <webp/decode.h>
+#include <webp/encode.h>
+
+int main(void) {
+  const int decoder = WebPGetDecoderVersion();
+  const int encoder = WebPGetEncoderVersion();
+
+  if (decoder <= 0 || encoder <= 0) {
+    return 1;
+  }
+  printf("decoder=%d encoder=%d\n", decoder, encoder);
+  return 0;
+}
+C
+
+  cc "$dir/libwebp_probe.c" -o "$dir/libwebp-probe" $(pkg-config --cflags --libs libwebp) >/tmp/pkg-config-libwebp-compile.log 2>&1 || {
+    cat /tmp/pkg-config-libwebp-compile.log >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/libwebp-probe" libwebp.so.7 "pkg-config libwebp consumer"
+  "$dir/libwebp-probe" >"$dir/run.log" 2>&1 || {
+    cat "$dir/run.log" >&2
+    exit 1
+  }
+  require_contains "$dir/run.log" 'decoder='
+}
+
+probe_pkg_config_libsharpyuv() {
+  local dir
+
+  dir="$(reset_test_dir pkg-config-libsharpyuv)"
+  write_probe_common_header "$dir"
+
+  cat >"$dir/libsharpyuv_probe.c" <<'C'
+#include <stdio.h>
+#include <sharpyuv/sharpyuv.h>
+
+int main(void) {
+  const int version = SharpYuvGetVersion();
+  if (version <= 0) {
+    return 1;
+  }
+  printf("sharpyuv=%d\n", version);
+  return 0;
+}
+C
+
+  cc "$dir/libsharpyuv_probe.c" -o "$dir/libsharpyuv-probe" $(pkg-config --cflags --libs libsharpyuv) >/tmp/pkg-config-libsharpyuv-compile.log 2>&1 || {
+    cat /tmp/pkg-config-libsharpyuv-compile.log >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/libsharpyuv-probe" libsharpyuv.so.0 "pkg-config libsharpyuv consumer"
+  "$dir/libsharpyuv-probe" >"$dir/run.log" 2>&1 || {
+    cat "$dir/run.log" >&2
+    exit 1
+  }
+  require_contains "$dir/run.log" 'sharpyuv='
+}
+
+probe_pkg_config_libwebpdecoder() {
+  local dir
+
+  dir="$(reset_test_dir pkg-config-libwebpdecoder)"
+  write_probe_common_header "$dir"
+
+  cat >"$dir/libwebpdecoder_probe.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <webp/decode.h>
+
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* bytes = NULL;
+  size_t size = 0;
+  int width = 0;
+  int height = 0;
+
+  if (argc != 2) return 2;
+  if (!read_file_bytes(argv[1], &bytes, &size)) return 1;
+  if (WebPGetDecoderVersion() <= 0) return 1;
+  if (!WebPGetInfo(bytes, size, &width, &height)) return 1;
+  if (width <= 0 || height <= 0) return 1;
+
+  printf("%dx%d\n", width, height);
+  free(bytes);
+  return 0;
+}
+C
+
+  cc "$dir/libwebpdecoder_probe.c" -o "$dir/libwebpdecoder-probe" $(pkg-config --cflags --libs libwebpdecoder) >/tmp/pkg-config-libwebpdecoder-compile.log 2>&1 || {
+    cat /tmp/pkg-config-libwebpdecoder-compile.log >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/libwebpdecoder-probe" libwebpdecoder.so.3 "pkg-config libwebpdecoder consumer"
+  "$dir/libwebpdecoder-probe" "$FIXTURE_DIR/input.webp" >"$dir/run.log" 2>&1 || {
+    cat "$dir/run.log" >&2
+    exit 1
+  }
+  require_contains "$dir/run.log" 'x'
+}
+
+probe_pkg_config_libwebpdemux() {
+  local dir
+
+  dir="$(reset_test_dir pkg-config-libwebpdemux)"
+  write_probe_common_header "$dir"
+  ensure_animated_webp_fixture
+
+  cat >"$dir/libwebpdemux_probe.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <webp/demux.h>
+
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* bytes = NULL;
+  size_t size = 0;
+  WebPData data = {0};
+  WebPDemuxer* demux = NULL;
+  WebPIterator iter;
+  uint32_t frame_count = 0;
+  uint32_t canvas_width = 0;
+  uint32_t canvas_height = 0;
+
+  if (argc != 2) return 2;
+  if (!read_file_bytes(argv[1], &bytes, &size)) return 1;
+  data.bytes = bytes;
+  data.size = size;
+  demux = WebPDemux(&data);
+  if (demux == NULL) return 1;
+
+  frame_count = WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT);
+  canvas_width = WebPDemuxGetI(demux, WEBP_FF_CANVAS_WIDTH);
+  canvas_height = WebPDemuxGetI(demux, WEBP_FF_CANVAS_HEIGHT);
+  if (frame_count < 2 || canvas_width == 0 || canvas_height == 0) return 1;
+
+  if (!WebPDemuxGetFrame(demux, 1, &iter)) return 1;
+  if (iter.width == 0 || iter.height == 0) return 1;
+  WebPDemuxReleaseIterator(&iter);
+  WebPDemuxDelete(demux);
+  free(bytes);
+
+  printf("%ux%u frames=%u\n", canvas_width, canvas_height, frame_count);
+  return 0;
+}
+C
+
+  cc "$dir/libwebpdemux_probe.c" -o "$dir/libwebpdemux-probe" $(pkg-config --cflags --libs libwebpdemux) >/tmp/pkg-config-libwebpdemux-compile.log 2>&1 || {
+    cat /tmp/pkg-config-libwebpdemux-compile.log >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/libwebpdemux-probe" libwebpdemux.so.2 "pkg-config libwebpdemux consumer"
+  "$dir/libwebpdemux-probe" "$FIXTURE_DIR/animated.webp" >"$dir/run.log" 2>&1 || {
+    cat "$dir/run.log" >&2
+    exit 1
+  }
+  require_contains "$dir/run.log" 'frames='
+}
+
+probe_pkg_config_libwebpmux() {
+  local dir
+
+  dir="$(reset_test_dir pkg-config-libwebpmux)"
+  write_probe_common_header "$dir"
+  ensure_metadata_webp_fixture
+
+  cat >"$dir/libwebpmux_probe.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <webp/mux.h>
+
+#include "probe_common.h"
+
+static int write_file_bytes(const char* path, const uint8_t* bytes, size_t size) {
+  FILE* file = fopen(path, "wb");
+  if (file == NULL) return 0;
+  if (fwrite(bytes, 1, size, file) != size) {
+    fclose(file);
+    return 0;
+  }
+  fclose(file);
+  return 1;
+}
+
+int main(int argc, char** argv) {
+  uint8_t* image_bytes = NULL;
+  uint8_t* exif_bytes = NULL;
+  size_t image_size = 0;
+  size_t exif_size = 0;
+  WebPData image = {0};
+  WebPData exif = {0};
+  WebPData assembled = {0};
+  WebPData extracted = {0};
+  WebPMux* mux = NULL;
+  WebPMux* parsed = NULL;
+
+  if (argc != 4) return 2;
+  if (!read_file_bytes(argv[1], &image_bytes, &image_size)) return 1;
+  if (!read_file_bytes(argv[2], &exif_bytes, &exif_size)) return 1;
+
+  image.bytes = image_bytes;
+  image.size = image_size;
+  exif.bytes = exif_bytes;
+  exif.size = exif_size;
+  mux = WebPMuxNew();
+  if (mux == NULL) return 1;
+  if (WebPMuxSetImage(mux, &image, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxSetChunk(mux, "EXIF", &exif, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxAssemble(mux, &assembled) != WEBP_MUX_OK) return 1;
+
+  parsed = WebPMuxCreate(&assembled, 1);
+  if (parsed == NULL) return 1;
+  if (WebPMuxGetChunk(parsed, "EXIF", &extracted) != WEBP_MUX_OK) return 1;
+  if (extracted.size != exif.size || memcmp(extracted.bytes, exif.bytes, exif.size) != 0) return 1;
+  if (!write_file_bytes(argv[3], assembled.bytes, assembled.size)) return 1;
+
+  printf("assembled=%zu\n", assembled.size);
+  WebPMuxDelete(parsed);
+  WebPMuxDelete(mux);
+  free(exif_bytes);
+  free(image_bytes);
+  return 0;
+}
+C
+
+  cc "$dir/libwebpmux_probe.c" -o "$dir/libwebpmux-probe" $(pkg-config --cflags --libs libwebpmux) >/tmp/pkg-config-libwebpmux-compile.log 2>&1 || {
+    cat /tmp/pkg-config-libwebpmux-compile.log >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/libwebpmux-probe" libwebpmux.so.3 "pkg-config libwebpmux consumer"
+  "$dir/libwebpmux-probe" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" "$dir/mux-output.webp" >"$dir/run.log" 2>&1 || {
+    cat "$dir/run.log" >&2
+    exit 1
+  }
+  require_contains "$dir/run.log" 'assembled='
+  require_nonempty_file "$dir/mux-output.webp"
+}
+
+probe_cmake_webp() {
+  local dir
+
+  dir="$(reset_test_dir cmake-webp)"
+  write_probe_common_header "$dir"
+  ensure_metadata_webp_fixture
+  ensure_animated_webp_fixture
+
+  cat >"$dir/webpdecoder_consumer.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <webp/decode.h>
+
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* bytes = NULL;
+  size_t size = 0;
+  int width = 0;
+  int height = 0;
+
+  if (argc != 2) return 2;
+  if (!read_file_bytes(argv[1], &bytes, &size)) return 1;
+  if (!WebPGetInfo(bytes, size, &width, &height)) return 1;
+  if (width <= 0 || height <= 0) return 1;
+  printf("%dx%d\n", width, height);
+  free(bytes);
+  return 0;
+}
+C
+
+  cat >"$dir/sharpyuv_consumer.c" <<'C'
+#include <stdio.h>
+#include <sharpyuv/sharpyuv.h>
+
+int main(void) {
+  const int version = SharpYuvGetVersion();
+  if (version <= 0) return 1;
+  printf("sharpyuv=%d\n", version);
+  return 0;
+}
+C
+
+  cat >"$dir/webp_consumer.c" <<'C'
+#include <stdio.h>
+#include <webp/encode.h>
+
+int main(void) {
+  const int version = WebPGetEncoderVersion();
+  if (version <= 0) return 1;
+  printf("webp=%d\n", version);
+  return 0;
+}
+C
+
+  cat >"$dir/webpdemux_consumer.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <webp/demux.h>
+
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* bytes = NULL;
+  size_t size = 0;
+  WebPData data = {0};
+  WebPDemuxer* demux = NULL;
+  uint32_t frame_count = 0;
+
+  if (argc != 2) return 2;
+  if (!read_file_bytes(argv[1], &bytes, &size)) return 1;
+  data.bytes = bytes;
+  data.size = size;
+  demux = WebPDemux(&data);
+  if (demux == NULL) return 1;
+  frame_count = WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT);
+  if (frame_count < 2) return 1;
+  printf("frames=%u\n", frame_count);
+  WebPDemuxDelete(demux);
+  free(bytes);
+  return 0;
+}
+C
+
+  cat >"$dir/libwebpmux_consumer.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <webp/mux.h>
+
+#include "probe_common.h"
+
+static int write_file_bytes(const char* path, const uint8_t* bytes, size_t size) {
+  FILE* file = fopen(path, "wb");
+  if (file == NULL) return 0;
+  if (fwrite(bytes, 1, size, file) != size) {
+    fclose(file);
+    return 0;
+  }
+  fclose(file);
+  return 1;
+}
+
+int main(int argc, char** argv) {
+  uint8_t* image_bytes = NULL;
+  uint8_t* exif_bytes = NULL;
+  size_t image_size = 0;
+  size_t exif_size = 0;
+  WebPData image = {0};
+  WebPData exif = {0};
+  WebPData assembled = {0};
+  WebPMux* mux = NULL;
+
+  if (argc != 4) return 2;
+  if (!read_file_bytes(argv[1], &image_bytes, &image_size)) return 1;
+  if (!read_file_bytes(argv[2], &exif_bytes, &exif_size)) return 1;
+  image.bytes = image_bytes;
+  image.size = image_size;
+  exif.bytes = exif_bytes;
+  exif.size = exif_size;
+
+  mux = WebPMuxNew();
+  if (mux == NULL) return 1;
+  if (WebPMuxSetImage(mux, &image, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxSetChunk(mux, "EXIF", &exif, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxAssemble(mux, &assembled) != WEBP_MUX_OK) return 1;
+  if (!write_file_bytes(argv[3], assembled.bytes, assembled.size)) return 1;
+
+  printf("assembled=%zu\n", assembled.size);
+  WebPMuxDelete(mux);
+  WebPDataClear(&assembled);
+  free(exif_bytes);
+  free(image_bytes);
+  return 0;
+}
+C
+
+  cat >"$dir/variable_consumer.c" <<'C'
+#include <stdio.h>
+#include <stdlib.h>
+#include <webp/decode.h>
+#include <webp/demux.h>
+#include <webp/encode.h>
+#include <webp/mux.h>
+
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* animated_bytes = NULL;
+  uint8_t* image_bytes = NULL;
+  uint8_t* exif_bytes = NULL;
+  size_t animated_size = 0;
+  size_t image_size = 0;
+  size_t exif_size = 0;
+  WebPData animated = {0};
+  WebPData image = {0};
+  WebPData exif = {0};
+  WebPData assembled = {0};
+  WebPDemuxer* demux = NULL;
+  WebPMux* mux = NULL;
+
+  if (argc != 4) return 2;
+  if (!read_file_bytes(argv[1], &animated_bytes, &animated_size)) return 1;
+  if (!read_file_bytes(argv[2], &image_bytes, &image_size)) return 1;
+  if (!read_file_bytes(argv[3], &exif_bytes, &exif_size)) return 1;
+
+  animated.bytes = animated_bytes;
+  animated.size = animated_size;
+  image.bytes = image_bytes;
+  image.size = image_size;
+  exif.bytes = exif_bytes;
+  exif.size = exif_size;
+
+  if (WebPGetDecoderVersion() <= 0 || WebPGetEncoderVersion() <= 0 ||
+      WebPGetDemuxVersion() <= 0 || WebPGetMuxVersion() <= 0) {
+    return 1;
+  }
+
+  demux = WebPDemux(&animated);
+  if (demux == NULL || WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT) < 2) return 1;
+
+  mux = WebPMuxNew();
+  if (mux == NULL) return 1;
+  if (WebPMuxSetImage(mux, &image, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxSetChunk(mux, "EXIF", &exif, 1) != WEBP_MUX_OK) return 1;
+  if (WebPMuxAssemble(mux, &assembled) != WEBP_MUX_OK) return 1;
+
+  printf("assembled=%zu frames=%u\n", assembled.size, WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT));
+  WebPMuxDelete(mux);
+  WebPDemuxDelete(demux);
+  WebPDataClear(&assembled);
+  free(exif_bytes);
+  free(image_bytes);
+  free(animated_bytes);
+  return 0;
+}
+C
+
+  cat >"$dir/CMakeLists.txt" <<'CMAKE'
+cmake_minimum_required(VERSION 3.16)
+project(webp_config_probe C)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+find_package(WebP CONFIG REQUIRED)
+
+foreach(target IN ITEMS WebP::sharpyuv WebP::webpdecoder WebP::webp WebP::webpdemux WebP::libwebpmux)
+  if(NOT TARGET ${target})
+    message(FATAL_ERROR "missing imported target ${target}")
+  endif()
+endforeach()
+
+if(TARGET WebP::webpmux)
+  message(FATAL_ERROR "unexpected imported target WebP::webpmux")
+endif()
+
+if(NOT DEFINED WebP_INCLUDE_DIR OR "${WebP_INCLUDE_DIR}" STREQUAL "")
+  message(FATAL_ERROR "WebP_INCLUDE_DIR is empty")
+endif()
+
+if(NOT "${WebP_LIBRARIES}" STREQUAL "webpdecoder;webp;webpdemux;webpmux")
+  message(FATAL_ERROR "unexpected WebP_LIBRARIES=${WebP_LIBRARIES}")
+endif()
+
+if(NOT "${WEBP_LIBRARIES}" STREQUAL "webpdecoder;webp;webpdemux;webpmux")
+  message(FATAL_ERROR "unexpected WEBP_LIBRARIES=${WEBP_LIBRARIES}")
+endif()
+
+add_executable(imported_sharpyuv sharpyuv_consumer.c)
+target_link_libraries(imported_sharpyuv PRIVATE WebP::sharpyuv)
+
+add_executable(imported_webpdecoder webpdecoder_consumer.c)
+target_link_libraries(imported_webpdecoder PRIVATE WebP::webpdecoder)
+
+add_executable(imported_webp webp_consumer.c)
+target_link_libraries(imported_webp PRIVATE WebP::webp)
+
+add_executable(imported_webpdemux webpdemux_consumer.c)
+target_link_libraries(imported_webpdemux PRIVATE WebP::webpdemux)
+
+add_executable(imported_libwebpmux libwebpmux_consumer.c)
+target_link_libraries(imported_libwebpmux PRIVATE WebP::libwebpmux)
+
+add_executable(variable_consumer variable_consumer.c)
+target_include_directories(variable_consumer PRIVATE "${WebP_INCLUDE_DIR}")
+target_link_libraries(variable_consumer PRIVATE ${WebP_LIBRARIES})
+CMAKE
+
+  cmake -S "$dir" -B "$dir/build" -DCMAKE_BUILD_TYPE=Release >"$dir/configure.log" 2>&1 || {
+    cat "$dir/configure.log" >&2
+    exit 1
+  }
+  cmake --build "$dir/build" -j"$(nproc)" >"$dir/build.log" 2>&1 || {
+    cat "$dir/build.log" >&2
+    exit 1
+  }
+
+  assert_uses_local_soname "$dir/build/imported_sharpyuv" libsharpyuv.so.0 "CMake WebP::sharpyuv consumer"
+  assert_uses_local_soname "$dir/build/imported_webpdecoder" libwebpdecoder.so.3 "CMake WebP::webpdecoder consumer"
+  assert_uses_local_soname "$dir/build/imported_webp" libwebp.so.7 "CMake WebP::webp consumer"
+  assert_uses_local_soname "$dir/build/imported_webpdemux" libwebpdemux.so.2 "CMake WebP::webpdemux consumer"
+  assert_uses_local_soname "$dir/build/imported_libwebpmux" libwebpmux.so.3 "CMake WebP::libwebpmux consumer"
+  assert_uses_local_soname "$dir/build/variable_consumer" libwebp.so.7 "CMake variable-style consumer"
+
+  "$dir/build/imported_sharpyuv" >"$dir/imported_sharpyuv.log" 2>&1 || {
+    cat "$dir/imported_sharpyuv.log" >&2
+    exit 1
+  }
+  "$dir/build/imported_webpdecoder" "$FIXTURE_DIR/input.webp" >"$dir/imported_webpdecoder.log" 2>&1 || {
+    cat "$dir/imported_webpdecoder.log" >&2
+    exit 1
+  }
+  "$dir/build/imported_webp" >"$dir/imported_webp.log" 2>&1 || {
+    cat "$dir/imported_webp.log" >&2
+    exit 1
+  }
+  "$dir/build/imported_webpdemux" "$FIXTURE_DIR/animated.webp" >"$dir/imported_webpdemux.log" 2>&1 || {
+    cat "$dir/imported_webpdemux.log" >&2
+    exit 1
+  }
+  "$dir/build/imported_libwebpmux" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" "$dir/imported-libwebpmux-output.webp" >"$dir/imported_libwebpmux.log" 2>&1 || {
+    cat "$dir/imported_libwebpmux.log" >&2
+    exit 1
+  }
+  "$dir/build/variable_consumer" "$FIXTURE_DIR/animated.webp" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" >"$dir/variable_consumer.log" 2>&1 || {
+    cat "$dir/variable_consumer.log" >&2
+    exit 1
+  }
+
+  require_nonempty_file "$dir/imported-libwebpmux-output.webp"
+  require_contains "$dir/imported_webpdemux.log" 'frames='
+  require_contains "$dir/variable_consumer.log" 'assembled='
+}
+
+run_direct_metadata_checks() {
+  run_direct_check pkg-config-libwebp probe_pkg_config_libwebp
+  run_direct_check pkg-config-libsharpyuv probe_pkg_config_libsharpyuv
+  run_direct_check pkg-config-libwebpdecoder probe_pkg_config_libwebpdecoder
+  run_direct_check pkg-config-libwebpdemux probe_pkg_config_libwebpdemux
+  run_direct_check pkg-config-libwebpmux probe_pkg_config_libwebpmux
+  run_direct_check cmake-webp probe_cmake_webp
 }
 
 smoke_cwebp() {
@@ -1144,6 +1892,7 @@ log_step "Preparing shared fixtures"
 prepare_fixtures
 
 run_tool_smokes
+run_direct_metadata_checks
 
 run_check gimp "GIMP" gimp gimp test_gimp
 run_check pillow "Pillow" python3-pil pillow test_pillow
@@ -1162,6 +1911,9 @@ if [[ -n "$ONLY_FILTER" ]]; then
   case "$ONLY_FILTER" in
     tools|tool:*)
       [[ "$MATCHED_TOOL" -eq 1 ]] || die "no tool matched --only=$ONLY_FILTER"
+      ;;
+    pkg-config-libwebp|pkg-config-libsharpyuv|pkg-config-libwebpdecoder|pkg-config-libwebpdemux|pkg-config-libwebpmux|cmake-webp)
+      [[ "$MATCHED_DIRECT_CHECK" -eq 1 ]] || die "no installed-surface check matched --only=$ONLY_FILTER"
       ;;
     *)
       [[ "$MATCHED_DEPENDENT" -eq 1 ]] || die "no dependent matched --only=$ONLY_FILTER"

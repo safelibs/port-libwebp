@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use verify::{
     BuildCTestsArgs, BuildUpstreamFuzzersArgs, BuildUpstreamPublicApiTestArgs,
     BuildUpstreamToolsArgs, CSmokeArgs, RelinkOriginalObjectsArgs, ToolSmokeArgs, UnsafeAuditArgs,
-    VerifyInstallTreeArgs, VerifyNeededArgs, VerifySonamesArgs, VerifySymbolSubsetArgs,
-    VerifySymbolsArgs,
+    VerifyDependentsMetadataArgs, VerifyInstallTreeArgs, VerifyNeededArgs, VerifySonamesArgs,
+    VerifySymbolSubsetArgs, VerifySymbolsArgs,
 };
 
 #[derive(Parser, Debug)]
@@ -39,6 +39,7 @@ enum Command {
     VerifySonames(VerifySonamesArgs),
     VerifyNeeded(VerifyNeededArgs),
     VerifyInstallTree(VerifyInstallTreeArgs),
+    VerifyDependentsMetadata(VerifyDependentsMetadataArgs),
     BuildCTests(BuildCTestsArgs),
     BuildUpstreamPublicApiTest(BuildUpstreamPublicApiTestArgs),
     RelinkOriginalObjects(RelinkOriginalObjectsArgs),
@@ -66,6 +67,7 @@ fn main() -> Result<()> {
         Command::VerifySonames(args) => verify::verify_sonames(&args),
         Command::VerifyNeeded(args) => verify::verify_needed(&args),
         Command::VerifyInstallTree(args) => verify::verify_install_tree(&args),
+        Command::VerifyDependentsMetadata(args) => verify::verify_dependents_metadata(&args),
         Command::BuildCTests(args) => verify::build_c_tests(&args),
         Command::BuildUpstreamPublicApiTest(args) => verify::build_upstream_public_api_test(&args),
         Command::RelinkOriginalObjects(args) => verify::relink_original_objects(&args),

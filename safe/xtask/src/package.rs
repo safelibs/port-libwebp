@@ -583,10 +583,12 @@ fn render_cmake_files(
     let template_path = template_dir.join("WebPConfig.cmake.in");
     let template = fs::read_to_string(&template_path)
         .with_context(|| format!("failed to read {}", template_path.display()))?;
+    let package_init = cmake_package_init();
     let config = render_template(
         &template,
         &[
             ("@PROJECT_VERSION@", upstream_version),
+            ("@PACKAGE_INIT@", &package_init),
             ("@WEBP_USE_THREAD@", "FALSE"),
             ("@PROJECT_NAME@", "WebP"),
             (
@@ -871,8 +873,31 @@ endif()
     )
 }
 
+fn cmake_package_init() -> String {
+    r#"get_filename_component(PACKAGE_PREFIX_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../.." ABSOLUTE)
+
+macro(set_and_check _var _file)
+  set(${_var} "${_file}")
+  if(NOT EXISTS "${_file}")
+    message(FATAL_ERROR "File or directory ${_file} referenced by variable ${_var} does not exist!")
+  endif()
+endmacro()
+
+macro(check_required_components _NAME)
+  foreach(comp ${${_NAME}_FIND_COMPONENTS})
+    if(NOT ${_NAME}_${comp}_FOUND)
+      if(${_NAME}_FIND_REQUIRED_${comp})
+        set(${_NAME}_FOUND FALSE)
+      endif()
+    endif()
+  endforeach()
+endmacro()
+"#
+    .to_owned()
+}
+
 fn cmake_targets_file(multiarch: &str) -> String {
-    r#"get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+    r#"get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_DIR}/../../../.." ABSOLUTE)
 set(_WEBP_INCLUDE_DIR "${_IMPORT_PREFIX}/include")
 set(_WEBP_LIBRARY_DIR "${_IMPORT_PREFIX}/lib/@MULTIARCH@")
 
@@ -881,7 +906,7 @@ if(NOT TARGET WebP::sharpyuv)
   set_target_properties(WebP::sharpyuv PROPERTIES
     IMPORTED_LOCATION "${_WEBP_LIBRARY_DIR}/libsharpyuv.so.0"
     IMPORTED_SONAME "libsharpyuv.so.0"
-    INTERFACE_INCLUDE_DIRECTORIES "${_WEBP_INCLUDE_DIR}")
+    INTERFACE_INCLUDE_DIRECTORIES "${_WEBP_INCLUDE_DIR};${_WEBP_INCLUDE_DIR}/webp")
 endif()
 
 if(NOT TARGET WebP::webpdecoder)
@@ -910,9 +935,9 @@ if(NOT TARGET WebP::webpdemux)
     INTERFACE_LINK_LIBRARIES "WebP::webp")
 endif()
 
-if(NOT TARGET WebP::webpmux)
-  add_library(WebP::webpmux SHARED IMPORTED)
-  set_target_properties(WebP::webpmux PROPERTIES
+if(NOT TARGET WebP::libwebpmux)
+  add_library(WebP::libwebpmux SHARED IMPORTED)
+  set_target_properties(WebP::libwebpmux PROPERTIES
     IMPORTED_LOCATION "${_WEBP_LIBRARY_DIR}/libwebpmux.so.3"
     IMPORTED_SONAME "libwebpmux.so.3"
     INTERFACE_INCLUDE_DIRECTORIES "${_WEBP_INCLUDE_DIR}"
