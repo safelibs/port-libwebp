@@ -1,5 +1,9 @@
 #![cfg_attr(not(test), no_std)]
 
+use core::hint::spin_loop;
+use core::ptr;
+use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+
 use webp_abi::{SharpYuvColorSpace, SharpYuvConversionMatrix, SharpYuvMatrixType};
 use webp_core::{default_cpu_info, VP8CPUInfo, WebPWorkerInterface};
 
@@ -14,6 +18,36 @@ fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
 #[unsafe(no_mangle)]
 pub extern "C" fn rust_eh_personality() {}
 
+// Mirror upstream's LOCK_ACCESS around the hidden CPU-info/init state.
+static SHARPYUV_CPU_INFO_LOCK: AtomicBool = AtomicBool::new(false);
+static SHARPYUV_CPU_INFO: AtomicPtr<()> = AtomicPtr::new(default_cpu_info as *const () as *mut ());
+
+struct CpuInfoLockGuard;
+
+impl Drop for CpuInfoLockGuard {
+    fn drop(&mut self) {
+        SHARPYUV_CPU_INFO_LOCK.store(false, Ordering::Release);
+    }
+}
+
+#[inline]
+fn lock_cpu_info() -> CpuInfoLockGuard {
+    while SHARPYUV_CPU_INFO_LOCK
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        spin_loop();
+    }
+    CpuInfoLockGuard
+}
+
+#[inline]
+fn cpu_info_ptr(cpu_info: VP8CPUInfo) -> *mut () {
+    cpu_info
+        .map(|func| func as *const () as *mut ())
+        .unwrap_or(ptr::null_mut())
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn WebPSetWorkerInterface(winterface: *const WebPWorkerInterface) -> i32 {
     webp_core::webp_set_worker_interface(winterface)
@@ -24,6 +58,8 @@ pub extern "C" fn WebPGetWorkerInterface() -> *const WebPWorkerInterface {
     webp_core::webp_get_worker_interface()
 }
 
+// Keep this hidden symbol available for linked webp-core objects that still
+// reference the traditional runtime-global CPU callback.
 #[unsafe(no_mangle)]
 pub static mut VP8GetCPUInfo: VP8CPUInfo = Some(default_cpu_info);
 
@@ -67,6 +103,10 @@ pub extern "C" fn SharpYuvConvert(
     height: i32,
     yuv_matrix: *const SharpYuvConversionMatrix,
 ) -> i32 {
+    {
+        let _guard = lock_cpu_info();
+        webp_core::sharpyuv::init_from_cpu_info_ptr(SHARPYUV_CPU_INFO.load(Ordering::Acquire));
+    }
     webp_core::sharpyuv::convert(
         r_ptr,
         g_ptr,
@@ -89,5 +129,8 @@ pub extern "C" fn SharpYuvConvert(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn SharpYuvInit(cpu_info_func: VP8CPUInfo) {
-    webp_core::sharpyuv::init(cpu_info_func);
+    let current = cpu_info_ptr(cpu_info_func);
+    let _guard = lock_cpu_info();
+    SHARPYUV_CPU_INFO.store(current, Ordering::Release);
+    webp_core::sharpyuv::init_from_cpu_info_ptr(current);
 }

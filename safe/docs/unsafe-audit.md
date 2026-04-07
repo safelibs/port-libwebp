@@ -19,7 +19,7 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 ## Inventory
 | Path | Category | Count | Lines |
 | --- | --- | ---: | --- |
-| `crates/libsharpyuv/src/lib.rs` | Exported ABI Shims | 10 | 10, 14, 17, 22, 27, 30, 35, 43, 51, 90 |
+| `crates/libsharpyuv/src/lib.rs` | Exported ABI Shims | 10 | 14, 18, 51, 56, 63, 66, 71, 79, 87, 130 |
 | `crates/libwebp/src/lib.rs` | Exported ABI Shims | 5 | 31, 35, 38, 43, 48 |
 | `crates/libwebpdecoder/src/lib.rs` | Exported ABI Shims | 5 | 9, 13, 16, 21, 26 |
 | `crates/libwebpdemux/src/lib.rs` | Exported ABI Shims | 42 | 12, 16, 19, 21, 24, 31, 34, 36, 39, 44, 47, 53, ... |
@@ -31,7 +31,7 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 | `crates/webp-core/src/sharpyuv/convert.rs` | SharpYuv ABI Adapters | 19 | 150, 154, 161, 165, 188, 190, 192, 308, 317, 335, 337, 355, ... |
 | `crates/webp-core/src/sharpyuv/csp.rs` | SharpYuv ABI Adapters | 1 | 14 |
 | `crates/webp-core/src/sharpyuv/gamma.rs` | SharpYuv ABI Adapters | 5 | 49, 66, 73, 118, 134 |
-| `crates/webp-core/src/sharpyuv/mod.rs` | SharpYuv ABI Adapters | 2 | 53, 86 |
+| `crates/webp-core/src/sharpyuv/mod.rs` | SharpYuv ABI Adapters | 2 | 47, 79 |
 | `crates/webp-core/src/threading.rs` | Runtime Globals And Scaffolding | 8 | 49, 69, 77, 93, 102, 110, 132, 143 |
 | `crates/webp-core/tests/encode_security.rs` | Regression Tests | 6 | 16, 19, 26, 36, 39, 46 |
 | `crates/webp-core/tests/malformed_huffman_tables.rs` | Regression Tests | 4 | 8, 13, 21, 25 |

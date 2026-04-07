@@ -62,7 +62,10 @@ fn ensure_sharpyuv_dependency() {
     }
 
     let status = build.status().expect("failed to invoke nested cargo build");
-    assert!(status.success(), "nested cargo build for libsharpyuv failed");
+    assert!(
+        status.success(),
+        "nested cargo build for libsharpyuv failed"
+    );
 
     println!(
         "cargo:rustc-link-search=native={}",

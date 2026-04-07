@@ -11,7 +11,6 @@ use webp_abi::{
     SharpYuvColorSpace, SharpYuvConversionMatrix, SharpYuvMatrixType, SHARPYUV_VERSION,
 };
 
-static CURRENT_CPU_INFO: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
 static LAST_INITIALIZED_CPU_INFO: AtomicPtr<()> = AtomicPtr::new(ptr::null_mut());
 
 fn cpu_info_ptr(cpu_info: VP8CPUInfo) -> *mut () {
@@ -25,15 +24,10 @@ pub fn get_version() -> i32 {
 }
 
 pub fn init(cpu_info: VP8CPUInfo) {
-    if let Some(func) = cpu_info {
-        CURRENT_CPU_INFO.store(func as *const () as *mut (), Ordering::Relaxed);
-    }
-    let current = cpu_info_ptr(cpu_info).wrapping_offset(0);
-    let current = if current.is_null() {
-        CURRENT_CPU_INFO.load(Ordering::Acquire)
-    } else {
-        current
-    };
+    init_from_cpu_info_ptr(cpu_info_ptr(cpu_info));
+}
+
+pub fn init_from_cpu_info_ptr(current: *mut ()) {
     if LAST_INITIALIZED_CPU_INFO.load(Ordering::Acquire) == current {
         return;
     }
@@ -78,7 +72,6 @@ pub fn convert(
     height: i32,
     yuv_matrix: *const SharpYuvConversionMatrix,
 ) -> i32 {
-    init(None);
     if yuv_matrix.is_null() {
         return 0;
     }
