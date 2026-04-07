@@ -6,11 +6,11 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 
 ## Summary
 - Files containing `unsafe`: 16
-- `unsafe` occurrences: 234
+- `unsafe` occurrences: 268
 - `xtask/`, Debian/package glue, the transliterated codec internals, and the new C regression test remain free of explicit Rust `unsafe` operations.
 
 ## Categories
-- Exported ABI Shims: 5 files / 64 occurrences. No-mangle entry points, panic abort handlers, and exported global-object symbols.
+- Exported ABI Shims: 5 files / 98 occurrences. No-mangle entry points, panic abort handlers, and exported global-object symbols.
 - Runtime Globals And Scaffolding: 3 files / 32 occurrences. Global allocator hooks, worker-interface state, CPU callback defaults, and compatibility stubs.
 - Demux ABI Adapters: 2 files / 101 occurrences. Pointer conversions confined to the demux public C ABI adapters.
 - SharpYuv ABI Adapters: 4 files / 27 occurrences. Pointer conversions confined to the SharpYuv public C ABI adapters.
@@ -20,13 +20,13 @@ This audit tracks explicit unsafe operations in repo-owned Rust: `unsafe {}` blo
 | Path | Category | Count | Lines |
 | --- | --- | ---: | --- |
 | `crates/libsharpyuv/src/lib.rs` | Exported ABI Shims | 10 | 14, 18, 51, 56, 63, 66, 71, 79, 87, 130 |
-| `crates/libwebp/src/lib.rs` | Exported ABI Shims | 5 | 31, 35, 38, 43, 48 |
-| `crates/libwebpdecoder/src/lib.rs` | Exported ABI Shims | 5 | 9, 13, 16, 21, 26 |
+| `crates/libwebp/src/lib.rs` | Exported ABI Shims | 33 | 57, 61, 64, 69, 74, 78, 83, 98, 102, 106, 110, 114, ... |
+| `crates/libwebpdecoder/src/lib.rs` | Exported ABI Shims | 11 | 10, 14, 17, 22, 27, 30, 35, 40, 45, 48, 53 |
 | `crates/libwebpdemux/src/lib.rs` | Exported ABI Shims | 42 | 12, 16, 19, 21, 24, 31, 34, 36, 39, 44, 47, 53, ... |
 | `crates/libwebpmux/src/lib.rs` | Exported ABI Shims | 2 | 9, 13 |
 | `crates/webp-core/src/alloc.rs` | Runtime Globals And Scaffolding | 8 | 11, 16, 21, 31, 37, 45, 60, 66 |
 | `crates/webp-core/src/compat.rs` | Runtime Globals And Scaffolding | 16 | 33, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, ... |
-| `crates/webp-core/src/demux/anim_decode.rs` | Demux ABI Adapters | 49 | 51, 56, 75, 98, 118, 120, 141, 151, 165, 179, 186, 193, ... |
+| `crates/webp-core/src/demux/anim_decode.rs` | Demux ABI Adapters | 49 | 51, 56, 75, 98, 118, 120, 135, 149, 159, 173, 187, 194, ... |
 | `crates/webp-core/src/demux/demux.rs` | Demux ABI Adapters | 52 | 115, 141, 147, 154, 162, 172, 201, 251, 253, 295, 297, 335, ... |
 | `crates/webp-core/src/sharpyuv/convert.rs` | SharpYuv ABI Adapters | 19 | 150, 154, 161, 165, 188, 190, 192, 308, 317, 335, 337, 355, ... |
 | `crates/webp-core/src/sharpyuv/csp.rs` | SharpYuv ABI Adapters | 1 | 14 |

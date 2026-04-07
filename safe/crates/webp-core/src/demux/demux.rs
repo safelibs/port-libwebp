@@ -812,13 +812,16 @@ fn create_raw_image_demuxer(mem: &MemBuffer) -> Result<Box<Demuxer>, ParseStatus
     let mut dmux = Box::new(init_demux(mem));
     let mut frame = Frame::default();
     set_frame_info(0, mem.buf_size, 1, true, &features, &mut frame);
-    if !add_frame(&mut dmux, frame.clone()) {
+    let canvas_width = frame.width;
+    let canvas_height = frame.height;
+    let has_alpha = frame.has_alpha;
+    if !add_frame(&mut dmux, frame) {
         return Err(ParseStatus::Error);
     }
     dmux.state = WebPDemuxState::WEBP_DEMUX_DONE;
-    dmux.canvas_width = frame.width;
-    dmux.canvas_height = frame.height;
-    if frame.has_alpha != 0 {
+    dmux.canvas_width = canvas_width;
+    dmux.canvas_height = canvas_height;
+    if has_alpha != 0 {
         dmux.feature_flags |= ALPHA_FLAG.0 as u32;
     }
     dmux.num_frames = 1;

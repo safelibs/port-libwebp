@@ -44,6 +44,14 @@ fn ensure_webp_dependency() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let target_dir = out_dir.join("webp-target");
     let profile = env::var("PROFILE").unwrap();
+    let nested_profile = if profile == "release" {
+        profile.as_str()
+    } else {
+        // The nested debug build of `libwebp` relies on an extracted webp-core root archive
+        // that only exists when `libwebp` is built as a top-level package. Reuse the release
+        // artifact here so `libwebpdemux` stays buildable in non-release profiles as well.
+        "release"
+    };
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut build = Command::new(cargo);
 
@@ -55,10 +63,10 @@ fn ensure_webp_dependency() {
         .arg(&target_dir)
         .arg("-p")
         .arg("libwebp");
-    if profile == "release" {
+    if nested_profile == "release" {
         build.arg("--release");
-    } else if profile != "debug" {
-        build.arg("--profile").arg(&profile);
+    } else if nested_profile != "debug" {
+        build.arg("--profile").arg(nested_profile);
     }
 
     let status = build.status().expect("failed to invoke nested cargo build");
@@ -66,7 +74,7 @@ fn ensure_webp_dependency() {
 
     println!(
         "cargo:rustc-link-search=native={}",
-        profile_output_dir(&target_dir, &profile).display()
+        profile_output_dir(&target_dir, nested_profile).display()
     );
 }
 

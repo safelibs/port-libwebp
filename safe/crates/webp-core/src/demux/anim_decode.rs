@@ -130,6 +130,14 @@ fn cleanup_decoder(dec: &mut AnimDecoder) {
     }
 }
 
+fn reset_decoder_state(dec: &mut AnimDecoder) {
+    dec.prev_frame_timestamp = 0;
+    unsafe { WebPDemuxReleaseIterator(&mut dec.prev_iter) };
+    dec.prev_iter = WebPIterator::default();
+    dec.prev_frame_was_keyframe = 0;
+    dec.next_frame = 1;
+}
+
 pub unsafe fn WebPAnimDecoderNewInternal(
     webp_data: *const WebPData,
     dec_options: *const WebPAnimDecoderOptions,
@@ -211,10 +219,7 @@ pub unsafe fn WebPAnimDecoderNewInternal(
         return ptr::null_mut();
     }
 
-    dec.prev_frame_timestamp = 0;
-    dec.prev_iter = WebPIterator::default();
-    dec.prev_frame_was_keyframe = 0;
-    dec.next_frame = 1;
+    reset_decoder_state(&mut dec);
     Box::into_raw(dec).cast()
 }
 
@@ -584,11 +589,7 @@ pub unsafe fn WebPAnimDecoderReset(dec: *mut WebPAnimDecoder) {
     let Some(dec) = (unsafe { decoder_mut(dec) }) else {
         return;
     };
-    dec.prev_frame_timestamp = 0;
-    unsafe { WebPDemuxReleaseIterator(&mut dec.prev_iter) };
-    dec.prev_iter = WebPIterator::default();
-    dec.prev_frame_was_keyframe = 0;
-    dec.next_frame = 1;
+    reset_decoder_state(dec);
 }
 
 pub unsafe fn WebPAnimDecoderGetDemuxer(dec: *const WebPAnimDecoder) -> *const WebPDemuxer {

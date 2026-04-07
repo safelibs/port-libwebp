@@ -57,6 +57,9 @@ static const uint8_t kAnimSample[] = {
     0xff, 0xb6, 0x4f, 0xfd, 0xe3, 0x3c, 0x36, 0xaa, 0xc9, 0x68, 0x00, 0x00,
 };
 
+static const size_t kFirstRawVp8Offset = 138u;
+static const size_t kFirstRawVp8Size = 48u;
+
 typedef struct {
   void* handle;
   WebPDemuxer* (*DemuxInternal)(const WebPData*, int, WebPDemuxState*, int);
@@ -297,6 +300,137 @@ static int RunDemuxTests(OracleApi* oracle, const WebPData* data) {
   return 0;
 }
 
+static int RunRawDemuxTests(OracleApi* oracle) {
+  WebPData raw_data = {kAnimSample + kFirstRawVp8Offset, kFirstRawVp8Size};
+  WebPData raw_partial = {kAnimSample + kFirstRawVp8Offset, kFirstRawVp8Size - 1u};
+  WebPDemuxState safe_state = WEBP_DEMUX_PARSE_ERROR;
+  WebPDemuxState oracle_state = WEBP_DEMUX_PARSE_ERROR;
+  WebPDemuxer *safe_dmux = NULL, *oracle_dmux = NULL;
+  WebPIterator safe_frame;
+  WebPIterator oracle_frame;
+
+  safe_dmux = WebPDemuxInternal(&raw_data, 0, &safe_state, WEBP_DEMUX_ABI_VERSION);
+  oracle_dmux = oracle->DemuxInternal(&raw_data, 0, &oracle_state, WEBP_DEMUX_ABI_VERSION);
+  CHECK(safe_dmux != NULL && oracle_dmux != NULL);
+  CHECK(safe_state == oracle_state);
+  CHECK(CompareFeatureSet(safe_dmux, oracle_dmux, oracle));
+  CHECK(WebPDemuxGetI(safe_dmux, WEBP_FF_FRAME_COUNT) == 1);
+  CHECK(WebPDemuxGetI(safe_dmux, WEBP_FF_FORMAT_FLAGS) == 0);
+  CHECK(WebPDemuxGetFrame(safe_dmux, 1, &safe_frame) == 1);
+  CHECK(oracle->DemuxGetFrame(oracle_dmux, 1, &oracle_frame) == 1);
+  CHECK(CompareFrameIterators(&safe_frame, &oracle_frame));
+  WebPDemuxReleaseIterator(&safe_frame);
+  oracle->DemuxReleaseIterator(&oracle_frame);
+  WebPDemuxDelete(safe_dmux);
+  oracle->DemuxDelete(oracle_dmux);
+
+  safe_dmux = WebPDemuxInternal(&raw_partial, 0, &safe_state, WEBP_DEMUX_ABI_VERSION);
+  oracle_dmux =
+      oracle->DemuxInternal(&raw_partial, 0, &oracle_state, WEBP_DEMUX_ABI_VERSION);
+  CHECK((safe_dmux != NULL) == (oracle_dmux != NULL));
+  CHECK(safe_state == oracle_state);
+  if (safe_dmux != NULL) {
+    CHECK(CompareFeatureSet(safe_dmux, oracle_dmux, oracle));
+    WebPDemuxDelete(safe_dmux);
+    oracle->DemuxDelete(oracle_dmux);
+  }
+
+  safe_dmux = WebPDemuxInternal(&raw_partial, 1, &safe_state, WEBP_DEMUX_ABI_VERSION);
+  oracle_dmux =
+      oracle->DemuxInternal(&raw_partial, 1, &oracle_state, WEBP_DEMUX_ABI_VERSION);
+  CHECK((safe_dmux != NULL) == (oracle_dmux != NULL));
+  CHECK(safe_state == oracle_state);
+  if (safe_dmux != NULL) {
+    CHECK(CompareFeatureSet(safe_dmux, oracle_dmux, oracle));
+    WebPDemuxDelete(safe_dmux);
+    oracle->DemuxDelete(oracle_dmux);
+  }
+  return 0;
+}
+
+static int RunInvalidApiTests(OracleApi* oracle, const WebPData* data) {
+  WebPIterator safe_frame;
+  WebPIterator oracle_frame;
+  WebPChunkIterator safe_chunk;
+  WebPChunkIterator oracle_chunk;
+  WebPAnimDecoderOptions safe_options;
+  WebPAnimDecoderOptions oracle_options;
+  WebPAnimDecoder *safe_dec = NULL, *oracle_dec = NULL;
+  WebPAnimInfo safe_info;
+  WebPAnimInfo oracle_info;
+  uint8_t *safe_buf = NULL, *oracle_buf = NULL;
+  int safe_ts = 0, oracle_ts = 0;
+
+  CHECK(WebPDemuxGetI(NULL, WEBP_FF_FRAME_COUNT) ==
+        oracle->DemuxGetI(NULL, WEBP_FF_FRAME_COUNT));
+  CHECK(WebPDemuxGetFrame(NULL, 1, &safe_frame) ==
+        oracle->DemuxGetFrame(NULL, 1, &oracle_frame));
+  CHECK(WebPDemuxGetFrame(NULL, 1, NULL) ==
+        oracle->DemuxGetFrame(NULL, 1, NULL));
+  CHECK(WebPDemuxNextFrame(NULL) == oracle->DemuxNextFrame(NULL));
+  CHECK(WebPDemuxPrevFrame(NULL) == oracle->DemuxPrevFrame(NULL));
+  CHECK(WebPDemuxGetChunk(NULL, "ICCP", 1, &safe_chunk) ==
+        oracle->DemuxGetChunk(NULL, "ICCP", 1, &oracle_chunk));
+  CHECK(WebPDemuxGetChunk(NULL, "ICCP", 1, NULL) ==
+        oracle->DemuxGetChunk(NULL, "ICCP", 1, NULL));
+  CHECK(WebPDemuxNextChunk(NULL) == oracle->DemuxNextChunk(NULL));
+  CHECK(WebPDemuxPrevChunk(NULL) == oracle->DemuxPrevChunk(NULL));
+
+  CHECK(WebPAnimDecoderOptionsInitInternal(&safe_options,
+                                           WEBP_DEMUX_ABI_VERSION - 0x100) ==
+        oracle->AnimDecoderOptionsInitInternal(&oracle_options,
+                                               WEBP_DEMUX_ABI_VERSION - 0x100));
+  CHECK(WebPAnimDecoderGetInfo(NULL, &safe_info) ==
+        oracle->AnimDecoderGetInfo(NULL, &oracle_info));
+  CHECK(WebPAnimDecoderGetInfo(NULL, NULL) ==
+        oracle->AnimDecoderGetInfo(NULL, NULL));
+  CHECK(WebPAnimDecoderGetNext(NULL, &safe_buf, &safe_ts) ==
+        oracle->AnimDecoderGetNext(NULL, &oracle_buf, &oracle_ts));
+  CHECK(WebPAnimDecoderGetNext(NULL, NULL, NULL) ==
+        oracle->AnimDecoderGetNext(NULL, NULL, NULL));
+  CHECK(WebPAnimDecoderHasMoreFrames(NULL) ==
+        oracle->AnimDecoderHasMoreFrames(NULL));
+  CHECK((WebPAnimDecoderGetDemuxer(NULL) != NULL) ==
+        (oracle->AnimDecoderGetDemuxer(NULL) != NULL));
+  WebPAnimDecoderReset(NULL);
+  oracle->AnimDecoderReset(NULL);
+  WebPAnimDecoderDelete(NULL);
+  oracle->AnimDecoderDelete(NULL);
+
+  CHECK(WebPAnimDecoderOptionsInitInternal(&safe_options, WEBP_DEMUX_ABI_VERSION) ==
+        1);
+  CHECK(oracle->AnimDecoderOptionsInitInternal(&oracle_options,
+                                               WEBP_DEMUX_ABI_VERSION) == 1);
+  safe_options.color_mode = (WEBP_CSP_MODE)999;
+  oracle_options.color_mode = (WEBP_CSP_MODE)999;
+  CHECK(WebPAnimDecoderNewInternal(data, &safe_options, WEBP_DEMUX_ABI_VERSION) ==
+        NULL);
+  CHECK(oracle->AnimDecoderNewInternal(data, &oracle_options,
+                                       WEBP_DEMUX_ABI_VERSION) == NULL);
+
+  CHECK(WebPAnimDecoderOptionsInitInternal(&safe_options, WEBP_DEMUX_ABI_VERSION) ==
+        1);
+  CHECK(oracle->AnimDecoderOptionsInitInternal(&oracle_options,
+                                               WEBP_DEMUX_ABI_VERSION) == 1);
+  safe_dec = WebPAnimDecoderNewInternal(data, &safe_options, WEBP_DEMUX_ABI_VERSION);
+  oracle_dec =
+      oracle->AnimDecoderNewInternal(data, &oracle_options, WEBP_DEMUX_ABI_VERSION);
+  CHECK(safe_dec != NULL && oracle_dec != NULL);
+  CHECK(WebPAnimDecoderGetInfo(safe_dec, NULL) == 0);
+  CHECK(oracle->AnimDecoderGetInfo(oracle_dec, NULL) == 0);
+  CHECK(WebPAnimDecoderGetNext(safe_dec, NULL, &safe_ts) == 0);
+  CHECK(oracle->AnimDecoderGetNext(oracle_dec, NULL, &oracle_ts) == 0);
+  CHECK(WebPAnimDecoderHasMoreFrames(safe_dec) ==
+        oracle->AnimDecoderHasMoreFrames(oracle_dec));
+  CHECK(WebPAnimDecoderGetNext(safe_dec, &safe_buf, NULL) == 0);
+  CHECK(oracle->AnimDecoderGetNext(oracle_dec, &oracle_buf, NULL) == 0);
+  CHECK(WebPAnimDecoderHasMoreFrames(safe_dec) ==
+        oracle->AnimDecoderHasMoreFrames(oracle_dec));
+  WebPAnimDecoderDelete(safe_dec);
+  oracle->AnimDecoderDelete(oracle_dec);
+  return 0;
+}
+
 static int RunAnimDecodeTests(OracleApi* oracle, const WebPData* data) {
   WebPAnimDecoderOptions safe_options;
   WebPAnimDecoderOptions oracle_options;
@@ -360,6 +494,8 @@ int main(void) {
   WebPData data = {kAnimSample, sizeof(kAnimSample)};
   CHECK(LoadOracleApi(&oracle));
   CHECK(RunDemuxTests(&oracle, &data) == 0);
+  CHECK(RunRawDemuxTests(&oracle) == 0);
+  CHECK(RunInvalidApiTests(&oracle, &data) == 0);
   CHECK(RunAnimDecodeTests(&oracle, &data) == 0);
   UnloadOracleApi(&oracle);
   return 0;
