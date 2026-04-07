@@ -309,9 +309,10 @@ pub unsafe extern "C" fn WebPPictureAllocARGB(picture: *mut WebPPicture) -> ::co
     let Some(aligned_pixels) = checked_add_usize(argb_size, WEBP_ALIGN_CST as usize) else {
         return WebPEncodingSetError(picture, VP8_ENC_ERROR_OUT_OF_MEMORY);
     };
-    let Some(total_bytes) =
-        checked_allocation_size(aligned_pixels as u64, ::core::mem::size_of::<uint32_t>() as size_t)
-    else {
+    let Some(total_bytes) = checked_allocation_size(
+        aligned_pixels as u64,
+        ::core::mem::size_of::<uint32_t>() as size_t,
+    ) else {
         return WebPEncodingSetError(picture, VP8_ENC_ERROR_OUT_OF_MEMORY);
     };
     WebPSafeFree((*picture).memory_argb_);

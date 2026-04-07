@@ -129,6 +129,48 @@ static int TestMemoryWriter(void) {
   return 0;
 }
 
+static int TestPictureAllocators(void) {
+  WebPPicture argb;
+  WebPPicture yuva;
+
+  memset(&argb, 0, sizeof(argb));
+  CHECK(WebPPictureInit(&argb));
+  argb.use_argb = 1;
+  argb.width = 7;
+  argb.height = 5;
+  CHECK(WebPPictureAlloc(&argb));
+  CHECK(argb.argb != NULL);
+  CHECK(argb.argb_stride == argb.width);
+  CHECK(argb.y == NULL);
+  CHECK(argb.u == NULL);
+  CHECK(argb.v == NULL);
+  CHECK(argb.a == NULL);
+  WebPPictureFree(&argb);
+  CHECK(argb.argb == NULL);
+
+  memset(&yuva, 0, sizeof(yuva));
+  CHECK(WebPPictureInit(&yuva));
+  yuva.use_argb = 0;
+  yuva.colorspace = WEBP_YUV420A;
+  yuva.width = 7;
+  yuva.height = 5;
+  CHECK(WebPPictureAlloc(&yuva));
+  CHECK(yuva.y != NULL);
+  CHECK(yuva.u != NULL);
+  CHECK(yuva.v != NULL);
+  CHECK(yuva.a != NULL);
+  CHECK(yuva.y_stride == yuva.width);
+  CHECK(yuva.uv_stride == 4);
+  CHECK(yuva.a_stride == yuva.width);
+  CHECK(yuva.argb == NULL);
+  WebPPictureFree(&yuva);
+  CHECK(yuva.y == NULL);
+  CHECK(yuva.u == NULL);
+  CHECK(yuva.v == NULL);
+  CHECK(yuva.a == NULL);
+  return 0;
+}
+
 static int TestConfigAndPictureUtilities(void) {
   enum { kWidth = 4, kHeight = 3 };
   uint8_t rgba[kWidth * kHeight * 4];
@@ -325,6 +367,9 @@ int main(void) {
   int result = 0;
 
   result = TestMemoryWriter();
+  if (result != 0) return result;
+
+  result = TestPictureAllocators();
   if (result != 0) return result;
 
   result = TestConfigAndPictureUtilities();

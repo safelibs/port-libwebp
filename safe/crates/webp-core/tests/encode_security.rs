@@ -2,7 +2,7 @@ use core::{ffi::c_void, mem};
 
 use webp_core::encode::picture_enc::{
     WebPMemoryWrite, WebPMemoryWriter, WebPPicture, WebPPictureAlloc, WebPPictureInitInternal,
-    VP8_ENC_ERROR_OUT_OF_MEMORY, WEBP_ENCODER_ABI_VERSION,
+    VP8_ENC_ERROR_OUT_OF_MEMORY, WEBP_ENCODER_ABI_VERSION, WEBP_YUV420A,
 };
 
 #[test]
@@ -47,4 +47,26 @@ fn oversized_picture_alloc() {
     assert_eq!(picture.error_code, VP8_ENC_ERROR_OUT_OF_MEMORY);
     assert!(picture.memory_argb_.is_null());
     assert!(picture.argb.is_null());
+}
+
+#[test]
+fn oversized_picture_alloc_yuva() {
+    let mut picture = unsafe { mem::zeroed::<WebPPicture>() };
+
+    assert_eq!(
+        unsafe { WebPPictureInitInternal(&mut picture, WEBP_ENCODER_ABI_VERSION) },
+        1
+    );
+    picture.use_argb = 0;
+    picture.colorspace = WEBP_YUV420A;
+    picture.width = i32::MAX;
+    picture.height = i32::MAX;
+
+    assert_eq!(unsafe { WebPPictureAlloc(&mut picture) }, 0);
+    assert_eq!(picture.error_code, VP8_ENC_ERROR_OUT_OF_MEMORY);
+    assert!(picture.memory_.is_null());
+    assert!(picture.y.is_null());
+    assert!(picture.u.is_null());
+    assert!(picture.v.is_null());
+    assert!(picture.a.is_null());
 }
