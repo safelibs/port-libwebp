@@ -20,7 +20,7 @@ version = "0.1.0"
 anyhow = "1.0.95"
 c2rust-bitfields = { version = "0.22.1", default-features = false, features = ["no_std"] }
 clap = { version = "4.5.23", features = ["derive"] }
-libc = "0.2.169"
+libc = "0.2.186"
 regex = "1.11.1"
 serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.133"
