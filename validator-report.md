@@ -1,4 +1,4 @@
-# libwebp Validator Report — Phase 3 Source-Facing And CLI Regressions
+# libwebp Validator Report — Phase 1 Baseline
 
 ## Run summary
 
@@ -31,7 +31,7 @@ Passed: 176
 Failed: 0
 Casts recorded: 176
 
-Checks executed: validator unit suite (make -C validator unit, 110 tests); testcase manifest check (make -C validator check-testcases); libwebp-only manifest check (python3 validator/tools/testcases.py --library libwebp --check); full port matrix run (bash test.sh --mode port --library libwebp --record-casts); proof verification (python3 tools/verify_proof_artifacts.py).
+Checks executed: validator unit suite (make -C validator unit, 110 tests); full-inventory testcase manifest check (make -C validator check-testcases); libwebp-only manifest check with live thresholds (python3 validator/tools/testcases.py --library libwebp --check --min-source-cases 5 --min-usage-cases 171 --min-cases 176); full port matrix run (bash test.sh --mode port --library libwebp --record-casts) producing 176 per-case JSON results, 177 per-case logs (including dependent-package install logs), and 176 per-case asciinema casts; proof verification (python3 tools/verify_proof_artifacts.py).
 
 Failures found: 0
 
@@ -41,8 +41,9 @@ Waived testcase ids:
 
 Every per-case result JSON under
 `validator/artifacts/libwebp-safe/port/results/libwebp/` reports
-`override_debs_installed == true`. The `dpkg --install --force-downgrade`
-in `validator/tests/_shared/install_override_debs.sh` unpacks all eight
+`override_debs_installed == true`. The
+`dpkg --install --force-downgrade` in
+`validator/tests/_shared/install_override_debs.sh` unpacks all eight
 local override packages over the stock noble apt versions before each
 testcase runs.
 
@@ -67,42 +68,51 @@ All eight packages were produced from `safe/` at commit
 
 Package version (Debian field): `1.3.2-0.4build3+safelibs1`.
 
-The seven library/dev packages have the same SHA-256 hashes recorded in
-the phase 1 baseline because their staged content (Rust shared
-libraries, headers, pkg-config and CMake fragments) was unchanged. The
-`webp` package SHA-256 changed from
-`af8f1dba3a6b59c27923e003acd0d5e7e0b183fd0580635248f345e312a1f45c`
-(98178 bytes) to
-`11bf556e7d1ae98928823ab830660b76dc9179c4a9f1d8f99bfec1a0c883f30d`
-(111160 bytes) because the upstream tool sources are now compiled with
-the `WEBP_HAVE_PNG=1`, `WEBP_HAVE_JPEG=1`, `WEBP_HAVE_TIFF=1`, and
-`WEBP_HAVE_GIF=1` defines so `pngdec.c`, `jpegdec.c`, `tiffdec.c`, and
-`image_enc.c` PNG output compile in real implementations instead of
-the stub branches.
+These eight `.deb` files exist on disk under
+`validator/artifacts/debs/local/libwebp/` and the SHA-256 and size
+columns above are exactly the values recorded in
+`validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`
+under `libraries[0].debs[]`. The `.deb` files were not rebuilt during
+this phase 1 re-run because `git log -1 --format=%H -- safe` already
+points at `e98031dac96b1ee74e8a4b62165b12f11a12ec9c`, which equals the
+`libraries[0].commit` value in the lock and the
+`libraries[0].port_commit` value in the proof; per the workflow plan,
+"do not rebuild packages merely to make the lock commit equal a
+report-only commit; rebuild only when `safe/` changes."
 
 ## Commands executed
 
 From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
 
 ```bash
-# 1. Rebuild the eight safe Debian packages from the patched xtask.
-cargo run -p xtask --manifest-path safe/Cargo.toml -- package-deb --output-dir safe/dist
+# Validator checkout setup (idempotent; already excluded and clean).
+grep -qxF '/validator/' .git/info/exclude || printf '\n/validator/\n' >> .git/info/exclude
+git -C validator diff --quiet
+git -C validator diff --cached --quiet
+git -C validator rev-parse HEAD
+# -> 87b321fe728340d6fc6dd2f638583cca82c667c3
 
-# 2. Refresh the local override root and rewrite the port-debs lock so
-#    `commit` matches the latest `safe/` commit and SHA-256 + size
-#    fields exactly track the on-disk .deb files.
-rm -rf validator/artifacts/debs/local/libwebp
-mkdir -p validator/artifacts/debs/local/libwebp validator/artifacts/libwebp-safe/proof
-find safe/dist -maxdepth 1 -type f -name '*.deb' \
-  -exec cp -f -t validator/artifacts/debs/local/libwebp {} +
-# (then run the inline python that wrote local-port-debs-lock.json with
-#  commit=e98031dac96b1ee74e8a4b62165b12f11a12ec9c and the new hashes)
+# Validator tooling and live-inventory checks.
+make -C validator unit
+make -C validator check-testcases
+SOURCE_COUNT=$(find validator/tests/libwebp/tests/cases/source -maxdepth 1 -name '*.sh' | wc -l)
+USAGE_COUNT=$(find validator/tests/libwebp/tests/cases/usage  -maxdepth 1 -name '*.sh' | wc -l)
+TOTAL_COUNT=$((SOURCE_COUNT + USAGE_COUNT))
+python3 validator/tools/testcases.py \
+  --config validator/repositories.yml \
+  --tests-root validator/tests \
+  --library libwebp \
+  --check \
+  --min-source-cases "$SOURCE_COUNT" \
+  --min-usage-cases "$USAGE_COUNT" \
+  --min-cases "$TOTAL_COUNT"
 ```
 
-From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`
+(reuses already-built artifacts; no `cargo run -p xtask -- package-deb`
+re-run because `safe/` HEAD was unchanged):
 
 ```bash
-# 3. Run the full libwebp port matrix and verify the proof.
 bash test.sh \
   --config repositories.yml \
   --tests-root tests \
@@ -127,63 +137,23 @@ python3 tools/verify_proof_artifacts.py \
   --ports-root /home/yans/safelibs/pipeline/ports
 ```
 
-## Phase 3 outcome
+## Failures and triage
 
-No source/CLI failures. All five source/CLI testcases —
-`cwebp-dwebp-roundtrip`, `decode-c-api-smoke`,
-`malformed-webp-rejection`, `webpinfo-inspection`, and
-`webpmux-metadata` — passed in the phase 2 port matrix run, with
-`override_debs_installed == true` in every per-case result JSON. Phase 3
-required no `safe/` source/CLI fixes, no new regression tests under
-`safe/tests/c/` or `safe/crates/webp-core/tests/`, no ABI export
-changes, no waivers, and no rebuild of the eight Debian packages: the
-artifacts on disk
-(`validator/artifacts/libwebp-safe/port/results/libwebp/*.json`,
-`validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`,
-and `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`)
-already cover the current `safe/` HEAD
-(`e98031dac96b1ee74e8a4b62165b12f11a12ec9c`), which equals
-`libraries[0].commit` in the lock and `libraries[0].port_commit` in
-the proof.
-
-The phase 3 commit (`impl_source_cli_failures`) is therefore an empty
-commit recording that the source/CLI gate had nothing to fix on top of
-phase 2.
-
-## Phase 2 fix
-
-Phase 1 surfaced one failing case,
-`usage-vips-webpload-all-frames`. The first failing log line was
-
-> `PNG support not compiled. Please install the libpng development package before building.`
-
-emitted by `img2webp` from the safe `webp` package while encoding three
-PNG frames into `anim.webp`. The string is printed by the
-`#else // !WEBP_HAVE_PNG` stub of `original/imageio/pngdec.c` (and the
-matching stub in `image_enc.c`). Although `safe/xtask/src/package.rs`
-was already linking `libpng`/`libjpeg`/`libtiff` via pkg-config and
-compiling the upstream `pngdec.c`/`jpegdec.c`/`tiffdec.c`/`image_enc.c`
-sources for `cwebp`, `dwebp`, `img2webp`, `anim_diff`, and `anim_dump`,
-the `WEBP_HAVE_PNG`, `WEBP_HAVE_JPEG`, and `WEBP_HAVE_TIFF` defines
-were never passed to the compiler, so every one of those translation
-units fell through to its stub branch.
-
-Fix: declare the matching `WEBP_HAVE_*=1` defines in `tool_spec` for
-each tool that already links those system libraries. `vwebp`,
-`webpinfo`, and `webpmux` are unchanged; `gif2webp` already declared
-`WEBP_HAVE_GIF=1`. Verified post-rebuild that `img2webp` links
-`libpng16.so.16`, `libjpeg.so.8`, and `libtiff.so.6`, and that
-`usage-vips-webpload-all-frames` now passes (status `passed`,
-`exit_code: 0`, `override_debs_installed: true`).
-
-## Failures
-
-None. All 176 cases pass with override packages installed.
+No validator testcases failed. Every one of the 5 source/CLI cases
+(`cwebp-dwebp-roundtrip`, `decode-c-api-smoke`,
+`malformed-webp-rejection`, `webpinfo-inspection`, `webpmux-metadata`)
+and all 171 usage cases across `ffmpeg`, `ffprobe`, `libsdl2-image`,
+`python3-pil`, `vips`, and `webp-pixbuf-loader` reports `passed` in
+`validator/artifacts/libwebp-safe/port/results/libwebp/<case>.json`.
+There are no triage entries (no source/CLI bucket, no usage/runtime
+bucket, no package/install bucket). Casts and logs are present for
+every case under
+`validator/artifacts/libwebp-safe/port/casts/libwebp/` and
+`validator/artifacts/libwebp-safe/port/logs/libwebp/`.
 
 ## Validator-bug waivers
 
-None. No waiver was added for this phase, so the original-package
-matrix did not need to be re-run.
+None. `Waived testcase ids:` is empty.
 
 ## Unsafe-block snapshot (from proof)
 
@@ -194,14 +164,17 @@ matrix did not need to be re-run.
 
 ## Notes
 
-- The only `safe/` change made this phase is the
-  `WEBP_HAVE_PNG/JPEG/TIFF/GIF` define list in
-  `safe/xtask/src/package.rs`; debian/control, debian/rules,
-  debian/changelog, the per-package `*.install` files, the
-  pkg-config/CMake templates, headers, and ABI manifests were not
-  touched.
-- The lock `commit` field equals the latest commit that touched
-  `safe/` (`e98031dac96b1ee74e8a4b62165b12f11a12ec9c`), as the
-  validator requires for `port` mode.
 - The nested `validator/` checkout remains excluded from the parent
   repo via `.git/info/exclude` and is not added to git.
+- The `.deb` files in the parent worktree's top level (e.g.
+  `libwebp7_1.3.2-0.4build3+safelibs1_amd64.deb`) are CI-build
+  byproducts left over from earlier work and are not tracked by git.
+  The validator override packages live under
+  `validator/artifacts/debs/local/libwebp/` and are the only copies
+  consumed by `bash test.sh`.
+- This phase 1 re-run did not modify `safe/`. The single `safe/` change
+  required to reach the all-pass baseline (the `WEBP_HAVE_PNG`,
+  `WEBP_HAVE_JPEG`, `WEBP_HAVE_TIFF`, and `WEBP_HAVE_GIF` defines in
+  `safe/xtask/src/package.rs`) is already part of
+  `e98031dac96b1ee74e8a4b62165b12f11a12ec9c` from the prior phase 2
+  commit `e98031d ci: enable PNG/JPEG/TIFF in webp tools`.
