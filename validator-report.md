@@ -1,4 +1,4 @@
-# libwebp Validator Report — Through Phase 3 (Source/CLI Regressions)
+# libwebp Validator Report — Through Phase 4 (Usage-Case Runtime Regressions)
 
 ## Run summary
 
@@ -229,6 +229,51 @@ No source/CLI failures. Phase 3 reviewed the same in-place artifacts:
 - `Waived testcase ids:` remains empty: there is no source/CLI
   failure to waive and no original-vs-safe original-package matrix
   re-run is required.
+
+## Phase 4 (Usage-Case Runtime Regressions) adjudication
+
+No usage-case failures. Phase 4 reviewed the same in-place artifacts:
+
+- All 171 usage cases under
+  `validator/artifacts/libwebp-safe/port/results/libwebp/usage-*.json`
+  report `status == "passed"`. The breakdown matches the phase 1
+  baseline: 41 `usage-ffmpeg-*`, 7 `usage-ffprobe-*`, 7
+  `usage-libsdl2-image-*`, 90 `usage-python3-pil-*`, 17 `usage-vips-*`,
+  and 9 `usage-webp-pixbuf-loader-*` cases all pass against the eight
+  override `.deb` files in `validator/artifacts/debs/local/libwebp/`.
+- Every per-case JSON still reports `override_debs_installed == true`,
+  so each Pillow, FFmpeg/FFprobe, libvips, SDL2_image, and
+  webp-pixbuf-loader case is exercising the safe libwebp/libsharpyuv
+  builds rather than the stock Ubuntu noble packages.
+- `validator/artifacts/libwebp-safe/port/results/libwebp/summary.json`
+  still reports `cases=176, source_cases=5, usage_cases=171,
+  passed=176, failed=0` and the SHA-256/size columns above still match
+  `libraries[0].debs[]` in
+  `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`.
+  `libraries[0].commit` and `libraries[0].port_commit` remain
+  `e98031dac96b1ee74e8a4b62165b12f11a12ec9c`, matching
+  `git log -1 --format=%H -- safe`.
+- No new safe-side regression test was added in phase 4 because there
+  is no usage failure to reproduce. The existing C and Rust regressions
+  registered in `safe/tests/c/CMakeLists.txt`
+  (`safe/tests/c/decode_api_test.c`,
+  `safe/tests/c/demux_animdecode_test.c`,
+  `safe/tests/c/encode_api_test.c`,
+  `safe/tests/c/runtime_abi_test.c`,
+  `safe/tests/c/upstream_public_api_test.c`) and under
+  `safe/crates/webp-core/tests/`
+  (`encode_security.rs`, `cve_2020_36332.rs`,
+  `malformed_huffman_tables.rs`) continue to gate the
+  `WebPDecode*` / `WebPEncode*` / `WebPMux*` / `WebPDemux*` C ABI
+  surface that the validator drives through Pillow, FFmpeg/FFprobe,
+  libvips, SDL2_image, and webp-pixbuf-loader.
+- No `safe/` source, ABI, include, or packaging changes were made in
+  phase 4, so no rebuild of the override `.deb` files was required and
+  the safe source commit tested is unchanged. The phase commit is
+  therefore an empty commit named for `impl_usage_runtime_failures`.
+- `Waived testcase ids:` remains empty: there is no usage-case failure
+  to waive and no original-vs-safe original-package matrix re-run is
+  required.
 
 ## Unsafe-block snapshot (from proof)
 
