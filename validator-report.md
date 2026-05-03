@@ -1,4 +1,4 @@
-# libwebp Validator Report — Phase 1 Baseline
+# libwebp Validator Report — Through Phase 2 (Package Override And Waiver Gate)
 
 ## Run summary
 
@@ -154,6 +154,40 @@ every case under
 ## Validator-bug waivers
 
 None. `Waived testcase ids:` is empty.
+
+## Phase 2 (Package Override And Waiver Gate) adjudication
+
+Phase 2 reviewed the phase 1 baseline artifacts in place and confirmed
+no package, install, symbol, dependency, or validator-bug waiver work
+is required:
+
+- All 176 per-case JSON files under
+  `validator/artifacts/libwebp-safe/port/results/libwebp/` report
+  `override_debs_installed == true`. None report install-related
+  failure.
+- `summary.json` reports `passed=176, failed=0`. No testcase needs a
+  validator-bug waiver, so the original-package matrix was not
+  re-run; `Waived testcase ids:` remains empty and no original-vs-safe
+  evidence rows are needed.
+- `cargo run -p xtask -- package-deb` already produced the eight
+  expected packages from the phase-2 packaging fix at safe commit
+  `e98031dac96b1ee74e8a4b62165b12f11a12ec9c`
+  (`ci: enable PNG/JPEG/TIFF in webp tools`), and those `.deb` files
+  remain on disk under `validator/artifacts/debs/local/libwebp/`.
+- `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`
+  has eight `libraries[0].debs[]` entries whose `filename`, `size`,
+  and `sha256` exactly match the on-disk `.deb` files (verified by
+  hashing each file in `validator/artifacts/debs/local/libwebp/` and
+  comparing against the lock). `libraries[0].commit` is
+  `e98031dac96b1ee74e8a4b62165b12f11a12ec9c`, which is also the output
+  of `git log -1 --format=%H -- safe`, and equals
+  `libraries[0].port_commit` in
+  `validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`.
+- No new `safe/` source, packaging, ABI, or include changes were made
+  in phase 2; the phase commit is therefore an empty commit named for
+  `impl_package_provenance_waiver_gate`. Per the plan, packages are
+  not rebuilt merely to advance the lock commit when `safe/` is
+  unchanged.
 
 ## Unsafe-block snapshot (from proof)
 
