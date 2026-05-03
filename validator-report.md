@@ -1,4 +1,4 @@
-# libwebp Validator Report — Through Phase 2 (Package Override And Waiver Gate)
+# libwebp Validator Report — Through Phase 3 (Source/CLI Regressions)
 
 ## Run summary
 
@@ -188,6 +188,47 @@ is required:
   `impl_package_provenance_waiver_gate`. Per the plan, packages are
   not rebuilt merely to advance the lock commit when `safe/` is
   unchanged.
+
+## Phase 3 (Source/CLI Regressions) adjudication
+
+No source/CLI failures. Phase 3 reviewed the same in-place artifacts:
+
+- All five source/CLI cases (`cwebp-dwebp-roundtrip`,
+  `decode-c-api-smoke`, `malformed-webp-rejection`,
+  `webpinfo-inspection`, `webpmux-metadata`) report `status == "passed"`
+  and `exit_code == 0` in
+  `validator/artifacts/libwebp-safe/port/results/libwebp/<case>.json`,
+  with `override_debs_installed == true` on every per-case JSON. The
+  override `.deb` set under `validator/artifacts/debs/local/libwebp/`
+  is the eight phase-2 packages tabulated above; SHA-256 and size
+  values still match `libraries[0].debs[]` in
+  `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`,
+  and `libraries[0].commit` /
+  `libraries[0].port_commit` remain
+  `e98031dac96b1ee74e8a4b62165b12f11a12ec9c`.
+- `validator/artifacts/libwebp-safe/port/results/libwebp/summary.json`
+  reports `cases=176, source_cases=5, usage_cases=171, passed=176,
+  failed=0`.
+- No new safe regression test was added because there is no
+  source/CLI failure to reproduce. The existing safe-side regressions
+  (`safe/tests/c/decode_api_test.c`,
+  `safe/tests/c/demux_animdecode_test.c`,
+  `safe/tests/c/encode_api_test.c`,
+  `safe/tests/c/runtime_abi_test.c`,
+  `safe/tests/c/upstream_public_api_test.c`,
+  `safe/crates/webp-core/tests/encode_security.rs`,
+  `safe/crates/webp-core/tests/cve_2020_36332.rs`,
+  `safe/crates/webp-core/tests/malformed_huffman_tables.rs`)
+  continue to gate the source-facing surface that the validator
+  exercises through `cwebp`, `dwebp`, `webpinfo`, `webpmux`, and the
+  `WebPGetInfo` / `WebPDecode*` C API entry points.
+- No `safe/` source, ABI, or include changes were made in phase 3, so
+  no rebuild of the override packages was required and the safe
+  source commit tested is unchanged. The phase commit is therefore
+  an empty commit named for `impl_source_cli_failures`.
+- `Waived testcase ids:` remains empty: there is no source/CLI
+  failure to waive and no original-vs-safe original-package matrix
+  re-run is required.
 
 ## Unsafe-block snapshot (from proof)
 
