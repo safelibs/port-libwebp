@@ -1,4 +1,4 @@
-# libwebp Validator Report — Phase 2 Package, Provenance, And Waiver Gate
+# libwebp Validator Report — Phase 3 Source-Facing And CLI Regressions
 
 ## Run summary
 
@@ -126,6 +126,29 @@ python3 tools/verify_proof_artifacts.py \
   --min-cases 176 \
   --ports-root /home/yans/safelibs/pipeline/ports
 ```
+
+## Phase 3 outcome
+
+No source/CLI failures. All five source/CLI testcases —
+`cwebp-dwebp-roundtrip`, `decode-c-api-smoke`,
+`malformed-webp-rejection`, `webpinfo-inspection`, and
+`webpmux-metadata` — passed in the phase 2 port matrix run, with
+`override_debs_installed == true` in every per-case result JSON. Phase 3
+required no `safe/` source/CLI fixes, no new regression tests under
+`safe/tests/c/` or `safe/crates/webp-core/tests/`, no ABI export
+changes, no waivers, and no rebuild of the eight Debian packages: the
+artifacts on disk
+(`validator/artifacts/libwebp-safe/port/results/libwebp/*.json`,
+`validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`,
+and `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`)
+already cover the current `safe/` HEAD
+(`e98031dac96b1ee74e8a4b62165b12f11a12ec9c`), which equals
+`libraries[0].commit` in the lock and `libraries[0].port_commit` in
+the proof.
+
+The phase 3 commit (`impl_source_cli_failures`) is therefore an empty
+commit recording that the source/CLI gate had nothing to fix on top of
+phase 2.
 
 ## Phase 2 fix
 
