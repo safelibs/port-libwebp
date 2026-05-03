@@ -2,20 +2,21 @@
 
 ## Run summary
 
-- Mode: `port`
-- Library: `libwebp`
-- Validator URL: https://github.com/safelibs/validator
-- Validator commit: `87b321fe728340d6fc6dd2f638583cca82c667c3`
-- Safe source commit tested: `6c7ba877dfe4c4e0aaf5697af4f51cc3a906a9e8`
-- Local release tag: `local-6c7ba877dfe4`
-- Override deb root: `validator/artifacts/debs/local`
-- Override leaf: `validator/artifacts/debs/local/libwebp/`
-- Artifact root: `validator/artifacts/libwebp-safe/`
-- Proof JSON: `validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`
-- Lock JSON: `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`
-- Per-case results dir: `validator/artifacts/libwebp-safe/port/results/libwebp/`
-- Per-case logs dir: `validator/artifacts/libwebp-safe/port/logs/libwebp/`
-- Per-case casts dir: `validator/artifacts/libwebp-safe/port/casts/libwebp/`
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 6c7ba877dfe4c4e0aaf5697af4f51cc3a906a9e8
+
+Mode: port
+Library: libwebp
+Validator URL: https://github.com/safelibs/validator
+Local release tag: local-6c7ba877dfe4
+Override deb root: validator/artifacts/debs/local
+Override leaf: validator/artifacts/debs/local/libwebp/
+Artifact root: validator/artifacts/libwebp-safe/
+Proof JSON: validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json
+Lock JSON: validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json
+Per-case results dir: validator/artifacts/libwebp-safe/port/results/libwebp/
+Per-case logs dir: validator/artifacts/libwebp-safe/port/logs/libwebp/
+Per-case casts dir: validator/artifacts/libwebp-safe/port/casts/libwebp/
 
 The `Safe source commit tested` value above equals
 `libraries[0].commit` in `local-port-debs-lock.json` and
@@ -23,22 +24,16 @@ The `Safe source commit tested` value above equals
 
 ## Testcase totals
 
-- Source cases: 5
-- Usage cases: 171
-- Total cases: 176
-- Passed: 175
-- Failed: 1
-- Casts recorded: 176
+Source cases: 5
+Usage cases: 171
+Total cases: 176
+Passed: 175
+Failed: 1
+Casts recorded: 176
 
-Checks executed: validator unit suite (`make -C validator unit`, 110 tests),
-testcase manifest check (`make -C validator check-testcases`),
-libwebp-only manifest check
-(`python3 validator/tools/testcases.py … --library libwebp --check`),
-full port matrix run (`bash test.sh --mode port --library libwebp
---record-casts`), proof verification
-(`python3 tools/verify_proof_artifacts.py …`).
+Checks executed: validator unit suite (make -C validator unit, 110 tests); testcase manifest check (make -C validator check-testcases); libwebp-only manifest check (python3 validator/tools/testcases.py --library libwebp --check); full port matrix run (bash test.sh --mode port --library libwebp --record-casts); proof verification (python3 tools/verify_proof_artifacts.py).
 
-Failures found: 1.
+Failures found: 1
 
 Waived testcase ids:
 
