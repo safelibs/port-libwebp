@@ -691,9 +691,14 @@ passes with 176/176 cases and 0 failures, and no waiver was used.
 
 Validator URL: https://github.com/safelibs/validator
 Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
-Safe source commit tested: cb5c55912bac422c3d3c2b894c2e26d6e74050e4 plus the
-`impl-demux-animdecode` working tree diff committed with this report.
+Safe source commit tested: 9c53734384013d42ca3332102165dce30ec77b34
 Final verification date: 2026-05-05 (America/Phoenix).
+Mode: port
+Library: libwebp
+Override deb root: validator/artifacts/debs/local
+Artifact root: validator/artifacts/libwebp-safe/
+Proof JSON: validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json
+Lock JSON: validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json
 
 ## Validator setup
 
@@ -702,9 +707,11 @@ was clean, and `git -C validator pull --ff-only` completed with
 `Already up to date.` I re-read `validator/README.md`; this phase did not
 edit validator tests, shared scripts, manifests, or tools.
 
-The full libwebp validator matrix was not rerun in this implement phase.
-The phase work was focused on the demux/animation decode gate and did not
-refresh Debian package artifacts for a new full-matrix run.
+The full libwebp validator matrix was rerun after rebuilding safe Debian
+packages from commit `9c53734384013d42ca3332102165dce30ec77b34`. Existing
+validator artifacts were updated in place under
+`validator/artifacts/debs/local/libwebp/` and
+`validator/artifacts/libwebp-safe/`.
 
 ## Commands and checks executed
 
@@ -727,11 +734,89 @@ ctest --test-dir safe/build/tests -R demux_animdecode --output-on-failure
 cargo run -p xtask --manifest-path safe/Cargo.toml -- unsafe-audit
 git diff --exit-code -- safe/docs/unsafe-audit.md
 git diff --check
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  package-deb --output-dir safe/dist
+rm -f validator/artifacts/debs/local/libwebp/*.deb
+cp safe/dist/*.deb validator/artifacts/debs/local/libwebp/
+# regenerate validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json
+# from the copied .deb hashes/sizes with commit 9c53734384013d42ca3332102165dce30ec77b34
 ```
 
-All final phase-gate commands above passed. The build still emits the
-pre-existing codec translation warnings; no demux-specific warning was
-introduced.
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+bash test.sh \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --mode port \
+  --override-deb-root artifacts/debs/local \
+  --port-deb-lock artifacts/libwebp-safe/proof/local-port-debs-lock.json \
+  --library libwebp \
+  --record-casts
+
+SOURCE_COUNT=$(find tests/libwebp/tests/cases/source -maxdepth 1 -name '*.sh' | wc -l)
+USAGE_COUNT=$(find tests/libwebp/tests/cases/usage -maxdepth 1 -name '*.sh' | wc -l)
+TOTAL_COUNT=$((SOURCE_COUNT + USAGE_COUNT))
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases "$SOURCE_COUNT" \
+  --min-usage-cases "$USAGE_COUNT" \
+  --min-cases "$TOTAL_COUNT" \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+All final phase-gate and validator commands above passed. The build still
+emits the pre-existing codec translation warnings; no demux-specific warning
+was introduced.
+
+## Validator results
+
+The live validator inventory at commit
+`87b321fe728340d6fc6dd2f638583cca82c667c3` contains 5 source cases and
+171 usage cases for libwebp, 176 total. The refreshed summary is:
+
+```json
+{
+  "schema_version": 2,
+  "library": "libwebp",
+  "mode": "port",
+  "cases": 176,
+  "source_cases": 5,
+  "usage_cases": 171,
+  "passed": 176,
+  "failed": 0,
+  "casts": 176,
+  "duration_seconds": 0.0
+}
+```
+
+The refreshed local lock and proof both record
+`9c53734384013d42ca3332102165dce30ec77b34`,
+`refs/tags/local-9c5373438401`, and release tag `local-9c5373438401`.
+The per-result invariant scan over 176 case JSON files found
+`wrong_commit=0`, `missing_override=0`, and `missing_pkgs=0`; every case
+reports `override_debs_installed == true` and all eight safe override
+packages installed.
+
+Refreshed safe Debian package hashes:
+
+| Package | SHA-256 | Size |
+|---|---:|---:|
+| libwebp7 | `fe95290b0d8fece7d9daa6e105d7bc93fcbf4f502b0286d4ffb4c26a570dff93` | 271926 |
+| libwebpdemux2 | `8155a463a1d378c4cc188fcfcd308a1bbf0af4b1400058026de9588002f76fc3` | 139400 |
+| libwebpmux3 | `d7e0d3cd735ae2b3688cc6ad5a6f4537d15d8bcb97e3e6b145416f33308cea6b` | 292306 |
+| libwebpdecoder3 | `3050ba41234d5eb92e85236d98498edbee544ceb6c7011f0f6c306e525a1a35d` | 131772 |
+| libsharpyuv0 | `0d7997f9c888e3bc69d8b9e1b64e52e0ae0c4a676a6cc4f8ed65d4d3148e5e61` | 91776 |
+| libwebp-dev | `93f82058aeb9d786bab3a508c75c9a4ef6dc980e7ea52e9f98f426469c4c06c3` | 444980 |
+| libsharpyuv-dev | `db118f662844c623f4d7ca9ffa15e7161564a5e2e152e46fc3926aa0b05c7b19` | 94194 |
+| webp | `11bf556e7d1ae98928823ab830660b76dc9179c4a9f1d8f99bfec1a0c883f30d` | 111160 |
 
 ## Failures found and fixes applied
 
@@ -757,7 +842,8 @@ Waived testcase ids:
 
 ## Final status
 
-Phase 4 is clean for the focused demux/animation decode gate. The safe
-`libwebpdemux` symbols, SONAME, `DT_NEEDED`, demux/animdecode C oracle test,
-and unsafe audit all pass; the validator checkout remains unchanged at
-`87b321fe728340d6fc6dd2f638583cca82c667c3`.
+Phase 4 is clean. The safe `libwebpdemux` symbols, SONAME, `DT_NEEDED`,
+demux/animdecode C oracle test, and unsafe audit all pass. The refreshed
+full libwebp validator matrix passes 176/176 cases with 0 failures and
+176 casts, and the proof artifacts now record the phase package commit
+`9c53734384013d42ca3332102165dce30ec77b34`. No waiver was used.
