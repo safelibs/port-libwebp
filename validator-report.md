@@ -10,7 +10,7 @@ Validator commit: `87b321fe728340d6fc6dd2f638583cca82c667c3`
 
 Validator update: `git -C validator pull --ff-only` reported `Already up to date.`
 
-Safe source commit tested: `4ec01468dd5d71aa28122acfa75950a9cf7c4592`
+Safe source commit tested: 2e1c17860c18ada8f97a628adb0f20a2dad18ba7
 
 Safe source tree: `/home/yans/safelibs/pipeline/ports/port-libwebp/safe`
 
@@ -32,8 +32,12 @@ Waived testcase ids: none.
   `validator/artifacts/debs/local/libwebp/`
 - Local port deb lock:
   `validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json`
+- Mirrored local port deb lock:
+  `validator/proof/local-port-debs-lock.json`
 - Validator proof:
   `validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`
+- Mirrored validator proof:
+  `validator/proof/libwebp-safe-port-proof.json`
 - Validator summary:
   `validator/artifacts/libwebp-safe/port/results/libwebp/summary.json`
 - Per-case validator results:
@@ -94,11 +98,13 @@ Validator package/artifact refresh:
 mkdir -p validator/artifacts/debs/local/libwebp validator/artifacts/libwebp-safe/proof
 cp /tmp/libwebp-safe-debs/*.deb validator/artifacts/debs/local/libwebp/
 python3 <local lock regeneration script>
+mkdir -p validator/proof
+cp validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json validator/proof/local-port-debs-lock.json
 ```
 
 The lock regeneration used the on-disk package metadata from `dpkg-deb -f`,
 the SHA-256 digest of each copied `.deb`, and the current safe commit
-`4ec01468dd5d71aa28122acfa75950a9cf7c4592`.
+`2e1c17860c18ada8f97a628adb0f20a2dad18ba7`.
 
 Full libwebp validator matrix and proof, run from
 `/home/yans/safelibs/pipeline/ports/port-libwebp/validator`:
@@ -106,6 +112,7 @@ Full libwebp validator matrix and proof, run from
 ```bash
 bash test.sh --config repositories.yml --tests-root tests --artifact-root artifacts/libwebp-safe --mode port --override-deb-root artifacts/debs/local --port-deb-lock artifacts/libwebp-safe/proof/local-port-debs-lock.json --library libwebp --record-casts
 python3 tools/verify_proof_artifacts.py --config repositories.yml --tests-root tests --artifact-root artifacts/libwebp-safe --proof-output proof/libwebp-safe-port-proof.json --mode port --library libwebp --require-casts --min-source-cases 5 --min-usage-cases 171 --min-cases 176 --ports-root /home/yans/safelibs/pipeline/ports
+cp artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json proof/libwebp-safe-port-proof.json
 python3 <per-result invariant scan>
 python3 tools/render_site.py --config repositories.yml --tests-root tests --artifact-root artifacts/libwebp-safe --proof-path artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json --output-root artifacts/libwebp-safe/site
 bash scripts/verify-site.sh --config repositories.yml --tests-root tests --artifacts-root artifacts/libwebp-safe --proof-path artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json --site-root artifacts/libwebp-safe/site --library libwebp
@@ -115,7 +122,7 @@ The invariant scan checked all 176 per-case JSON files for:
 
 - `status == "passed"`
 - `override_debs_installed == true`
-- `port_commit == 4ec01468dd5d71aa28122acfa75950a9cf7c4592`
+- `port_commit == 2e1c17860c18ada8f97a628adb0f20a2dad18ba7`
 - the installed override package set exactly matching the eight safe packages
   in `local-port-debs-lock.json`
 
@@ -140,8 +147,9 @@ The invariant scan checked all 176 per-case JSON files for:
 
 The proof file
 `validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json`
-records the same totals, the same safe source commit, and the unsafe-block
-summary added by `--ports-root /home/yans/safelibs/pipeline/ports`.
+and its mirror at `validator/proof/libwebp-safe-port-proof.json` record the
+same totals, the same safe source commit, and the unsafe-block summary added by
+`--ports-root /home/yans/safelibs/pipeline/ports`.
 
 ## Package Hashes
 
