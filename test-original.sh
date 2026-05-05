@@ -715,17 +715,33 @@ probe_pkg_config_libwebp() {
 
   cat >"$dir/libwebp_probe.c" <<'C'
 #include <stdio.h>
+#include <stdlib.h>
 #include <webp/decode.h>
 #include <webp/encode.h>
 
-int main(void) {
+#include "probe_common.h"
+
+int main(int argc, char** argv) {
+  uint8_t* bytes = NULL;
+  uint8_t* rgba = NULL;
+  size_t size = 0;
+  int width = 0;
+  int height = 0;
   const int decoder = WebPGetDecoderVersion();
   const int encoder = WebPGetEncoderVersion();
 
+  if (argc != 2) return 2;
+  if (!read_file_bytes(argv[1], &bytes, &size)) return 1;
   if (decoder <= 0 || encoder <= 0) {
     return 1;
   }
-  printf("decoder=%d encoder=%d\n", decoder, encoder);
+  if (!WebPGetInfo(bytes, size, &width, &height)) return 1;
+  rgba = WebPDecodeRGBA(bytes, size, &width, &height);
+  if (rgba == NULL || width <= 0 || height <= 0) return 1;
+
+  printf("decoder=%d encoder=%d image=%dx%d\n", decoder, encoder, width, height);
+  WebPFree(rgba);
+  free(bytes);
   return 0;
 }
 C
@@ -736,7 +752,7 @@ C
   }
 
   assert_uses_local_soname "$dir/libwebp-probe" libwebp.so.7 "pkg-config libwebp consumer"
-  "$dir/libwebp-probe" >"$dir/run.log" 2>&1 || {
+  "$dir/libwebp-probe" "$FIXTURE_DIR/input.webp" >"$dir/run.log" 2>&1 || {
     cat "$dir/run.log" >&2
     exit 1
   }
@@ -1168,15 +1184,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 find_package(WebP CONFIG REQUIRED)
 
-foreach(target IN ITEMS WebP::sharpyuv WebP::webpdecoder WebP::webp WebP::webpdemux WebP::libwebpmux)
+foreach(target IN ITEMS WebP::sharpyuv WebP::webpdecoder WebP::webp WebP::webpdemux WebP::webpmux)
   if(NOT TARGET ${target})
     message(FATAL_ERROR "missing imported target ${target}")
   endif()
 endforeach()
-
-if(TARGET WebP::webpmux)
-  message(FATAL_ERROR "unexpected imported target WebP::webpmux")
-endif()
 
 if(NOT DEFINED WebP_INCLUDE_DIR OR "${WebP_INCLUDE_DIR}" STREQUAL "")
   message(FATAL_ERROR "WebP_INCLUDE_DIR is empty")
@@ -1202,8 +1214,8 @@ target_link_libraries(imported_webp PRIVATE WebP::webp)
 add_executable(imported_webpdemux webpdemux_consumer.c)
 target_link_libraries(imported_webpdemux PRIVATE WebP::webpdemux)
 
-add_executable(imported_libwebpmux libwebpmux_consumer.c)
-target_link_libraries(imported_libwebpmux PRIVATE WebP::libwebpmux)
+add_executable(imported_webpmux libwebpmux_consumer.c)
+target_link_libraries(imported_webpmux PRIVATE WebP::webpmux)
 
 add_executable(variable_consumer variable_consumer.c)
 target_include_directories(variable_consumer PRIVATE "${WebP_INCLUDE_DIR}")
@@ -1223,7 +1235,7 @@ CMAKE
   assert_uses_local_soname "$dir/build/imported_webpdecoder" libwebpdecoder.so.3 "CMake WebP::webpdecoder consumer"
   assert_uses_local_soname "$dir/build/imported_webp" libwebp.so.7 "CMake WebP::webp consumer"
   assert_uses_local_soname "$dir/build/imported_webpdemux" libwebpdemux.so.2 "CMake WebP::webpdemux consumer"
-  assert_uses_local_soname "$dir/build/imported_libwebpmux" libwebpmux.so.3 "CMake WebP::libwebpmux consumer"
+  assert_uses_local_soname "$dir/build/imported_webpmux" libwebpmux.so.3 "CMake WebP::webpmux consumer"
   assert_uses_local_soname "$dir/build/variable_consumer" libwebp.so.7 "CMake variable-style consumer"
 
   "$dir/build/imported_sharpyuv" >"$dir/imported_sharpyuv.log" 2>&1 || {
@@ -1242,8 +1254,8 @@ CMAKE
     cat "$dir/imported_webpdemux.log" >&2
     exit 1
   }
-  "$dir/build/imported_libwebpmux" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" "$dir/imported-libwebpmux-output.webp" >"$dir/imported_libwebpmux.log" 2>&1 || {
-    cat "$dir/imported_libwebpmux.log" >&2
+  "$dir/build/imported_webpmux" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" "$dir/imported-webpmux-output.webp" >"$dir/imported_webpmux.log" 2>&1 || {
+    cat "$dir/imported_webpmux.log" >&2
     exit 1
   }
   "$dir/build/variable_consumer" "$FIXTURE_DIR/animated.webp" "$FIXTURE_DIR/input.webp" "$FIXTURE_DIR/shotwell.exif" >"$dir/variable_consumer.log" 2>&1 || {
@@ -1251,7 +1263,7 @@ CMAKE
     exit 1
   }
 
-  require_nonempty_file "$dir/imported-libwebpmux-output.webp"
+  require_nonempty_file "$dir/imported-webpmux-output.webp"
   require_contains "$dir/imported_webpdemux.log" 'frames='
   require_contains "$dir/variable_consumer.log" 'assembled='
 }
