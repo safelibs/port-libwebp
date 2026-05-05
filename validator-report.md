@@ -1,3 +1,119 @@
+# libwebp Validator Report - Phase 1: ABI Baseline Refresh
+
+## Run summary
+
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 90e0c784097445cc9083ac5a8e1669b2702aea25
+Inline `/home/yans/code/...` safe source commit tested: 6c7ba877dfe4c4e0aaf5697af4f51cc3a906a9e8
+Final verification date: 2026-05-05 (America/Phoenix).
+
+## Validator setup
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed and
+`git -C validator pull --ff-only` reported `Already up to date.` The checkout
+was clean before use. I read `validator/README.md`; for later full libwebp
+port validation after package artifacts are refreshed, the selected invocation
+is the README's selected-library/local-override flow:
+
+```bash
+cd /home/yans/safelibs/pipeline/ports/port-libwebp/validator
+bash test.sh \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --mode port \
+  --override-deb-root artifacts/debs/local \
+  --port-deb-lock artifacts/libwebp-safe/proof/local-port-debs-lock.json \
+  --library libwebp \
+  --record-casts
+
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases "$SOURCE_COUNT" \
+  --min-usage-cases "$USAGE_COUNT" \
+  --min-cases "$TOTAL_COUNT" \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+This phase did not edit validator tests, shared scripts, manifests, or tools.
+The full libwebp validator matrix was not rerun in Phase 1 because this phase's
+validator responsibility is setup, README review, and invocation selection; the
+full matrix is required after package artifacts are available and again in the
+final hardening phase.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo fmt --manifest-path safe/Cargo.toml --all --check
+cargo build -p webp-core --manifest-path safe/Cargo.toml \
+  --no-default-features --features decode,encode
+cargo check --workspace --manifest-path safe/Cargo.toml
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  capture-baseline --original-dir original --out-dir safe/abi/original
+diff -u original/src/webp/decode.h safe/include/webp/decode.h
+diff -u original/src/webp/demux.h safe/include/webp/demux.h
+diff -u original/src/webp/encode.h safe/include/webp/encode.h
+diff -u original/src/webp/mux.h safe/include/webp/mux.h
+diff -u original/src/webp/mux_types.h safe/include/webp/mux_types.h
+diff -u original/src/webp/types.h safe/include/webp/types.h
+diff -u original/sharpyuv/sharpyuv.h safe/include/webp/sharpyuv/sharpyuv.h
+diff -u original/sharpyuv/sharpyuv_csp.h \
+  safe/include/webp/sharpyuv/sharpyuv_csp.h
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-baseline-manifests --baseline-dir safe/abi/original
+git diff --exit-code -- safe/abi/original
+```
+
+The same `cargo fmt`, `cargo build -p webp-core --no-default-features
+--features decode,encode`, `cargo check`, `capture-baseline`, public header
+diffs, `verify-baseline-manifests`, and
+`git diff --exit-code -- safe/abi/original` checks were also run against the
+inline phase source paths under `/home/yans/code/safelibs/ported/libwebp/`.
+
+## Failures found
+
+The previous implementation attempt failed verification because it committed an
+out-of-scope change to `safe/crates/libwebp/build.rs`. That source change has
+been reverted in both workspace copies. No ABI, SONAME, NEEDED,
+install-surface, relink-manifest, pkg-config, CMake, Debian metadata, manpage,
+or copied-header drift was found. Recapturing the baseline left
+`safe/abi/original/` unchanged in both workspace copies.
+
+## Fixes applied
+
+The out-of-scope `safe/crates/libwebp/build.rs` change was removed. No
+phase-scoped safe source, ABI, header, package metadata, pkg-config, CMake,
+Debian, or manpage file required a content update.
+
+No validator testcase failure required a safe-side regression test in this
+phase. No validator waivers were added.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 1 is clean. The net implementation diff from the pre-phase base is
+limited to this report update; `safe/crates/libwebp/build.rs` has no net diff.
+The checked-in ABI/install-surface manifests and copied public headers remain
+authoritative and match the current upstream snapshot. The validator checkout is
+present, up to date, and recorded at
+`87b321fe728340d6fc6dd2f638583cca82c667c3`; the selected full libwebp
+validator invocation for later phases is recorded above.
+
+---
+
 # libwebp Validator Report — Final (Phase 5: Final Validator Hardening And Report Closure)
 
 ## Run summary
