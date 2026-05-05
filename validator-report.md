@@ -847,3 +847,45 @@ demux/animdecode C oracle test, and unsafe audit all pass. The refreshed
 full libwebp validator matrix passes 176/176 cases with 0 failures and
 176 casts, and the proof artifacts now record the phase package commit
 `9c53734384013d42ca3332102165dce30ec77b34`. No waiver was used.
+
+## Senior-tester bounce disposition
+
+The senior-tester bounce reported two issues: the generated `workflow.yaml`
+was left as an uncommitted tracked change, and the audit diff command was
+being run from `/home/yans/safelibs/pipeline/ports/port-libwebp` against a
+path owned by the separate `/home/yans/code/safelibs/ported/libwebp`
+repository.
+
+Fixes applied on 2026-05-05:
+
+- Committed the demux/animdecode source, test, and `libwebpdemux` build-glue
+  changes into the `/home/yans/code/safelibs/ported/libwebp` checkout as
+  commit `d5ef3db8d2d2de1a9e71709dac7df6cc0f05b1d9` (`impl-demux-animdecode`),
+  so the literal phase commands no longer test stale demux code.
+- Updated the generated workflow prompts in place so tracked Git cleanliness
+  checks for `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+  and `/home/yans/code/safelibs/ported/libwebp/safe/abi/original` run through
+  `git -C /home/yans/code/safelibs/ported/libwebp diff --exit-code -- ...`.
+  This preserves the same checked artifact while executing in the repository
+  that owns it.
+
+Additional checks executed after the bounce:
+
+```bash
+git diff --check
+cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdemux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode
+ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+git -C /home/yans/code/safelibs/ported/libwebp diff --exit-code -- safe/abi/original
+git -C /home/yans/code/safelibs/ported/libwebp diff --exit-code -- safe/docs/unsafe-audit.md
+git -C /home/yans/safelibs/pipeline/ports/port-libwebp/validator diff --quiet -- tests tests/_shared repositories.yml test.sh tools
+```
+
+All checks above passed. The full validator proof artifacts remain current
+for safe source/package commit `9c53734384013d42ca3332102165dce30ec77b34`;
+this bounce fix did not change the pipeline safe source that produced those
+packages.
