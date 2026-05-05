@@ -431,3 +431,159 @@ this is a single-library run).
 - The untracked `original/__pycache__/` and `original/swig/__pycache__/`
   directories are preexisting Python bytecode caches; per the plan
   they are intentionally not deleted or committed.
+
+---
+
+# libwebp Validator Report - Phase 2: ABI Runtime SharpYuv
+
+## Run summary
+
+Phase ID: `impl-abi-runtime-sharpyuv`
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 90e0c784097445cc9083ac5a8e1669b2702aea25
+Inline `/home/yans/code/...` safe source commit tested: 6c7ba877dfe4c4e0aaf5697af4f51cc3a906a9e8
+Parent workspace commit before phase report: 25ba9ff3786cec36861e9f99c2265afaf4b90e78
+Verification date: 2026-05-05 02:37:53 MST (-0700).
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed.
+`git -C validator pull --ff-only` completed with `Already up to date.`,
+and the validator checkout remained clean. I re-read `validator/README.md`
+and used its selected-library local override flow for the libwebp port
+matrix when the existing proof artifacts did not validate.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo test --manifest-path safe/Cargo.toml -p webp-abi --test ffi_layout
+cargo build --manifest-path safe/Cargo.toml \
+  -p libsharpyuv -p libwebp -p libwebpdecoder --release
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-symbols --baseline-dir safe/abi/original --libs libsharpyuv
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-symbol-subset --baseline-dir safe/abi/original \
+  --libs libwebp libwebpdecoder --subset common_runtime
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-sonames --libs libsharpyuv libwebp libwebpdecoder
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-needed --baseline-dir safe/abi/original \
+  --libs libsharpyuv libwebp libwebpdecoder
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  c-smoke --name sharpyuv_runtime
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  build-c-tests --suite runtime_abi
+ctest --test-dir safe/build/tests -R runtime_abi --output-on-failure
+cargo run -p xtask --manifest-path safe/Cargo.toml -- unsafe-audit
+git diff --exit-code -- safe/docs/unsafe-audit.md
+```
+
+The exact phase gate commands were also run against
+`/home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`; all passed,
+including the final `git diff --exit-code -- safe/docs/unsafe-audit.md`
+inside that worktree. The scoped source files for this phase are identical
+between the pipeline safe tree and the inline `/home/yans/code/...` safe
+tree; the only scoped file diff is the generated unsafe-audit command path
+header, which is intentionally worktree-specific.
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases 5 \
+  --min-usage-cases 171 \
+  --min-cases 176 \
+  --ports-root /home/yans/safelibs/pipeline/ports
+
+bash test.sh \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --mode port \
+  --override-deb-root artifacts/debs/local \
+  --port-deb-lock artifacts/libwebp-safe/proof/local-port-debs-lock.json \
+  --library libwebp \
+  --record-casts
+
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases 5 \
+  --min-usage-cases 171 \
+  --min-cases 176 \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+The first proof verification failed because the preexisting artifact set was
+missing `port/results/libwebp/usage-ffmpeg-webp-from-rawvideo-rgb24.json`
+even though the manifest, summary, logs, and casts expected 176 cases. The
+selected libwebp matrix was rerun in place against the existing local
+override `.deb` set, and the second proof verification passed.
+
+## Failures found and fixes applied
+
+No ABI layout, runtime-global, worker-interface, `VP8GetCPUInfo`, SharpYuv
+symbol-surface, SONAME, `DT_NEEDED`, C smoke, C runtime ABI, or unsafe-audit
+gate failed in either safe worktree. No libwebp-safe code fix was required,
+and no safe-side regression test was added because there was no validator
+compatibility or safety failure in the phase area.
+
+The only validator issue found was stale generated evidence under
+`validator/artifacts/`: the result JSON set had 175 per-case files while the
+current libwebp manifest and summary expected 176. Rerunning the unchanged
+validator suite regenerated the missing
+`usage-ffmpeg-webp-from-rawvideo-rgb24.json` result in place. After the rerun:
+
+```json
+{
+  "result_count": 176,
+  "summary": {
+    "schema_version": 2,
+    "library": "libwebp",
+    "mode": "port",
+    "cases": 176,
+    "source_cases": 5,
+    "usage_cases": 171,
+    "passed": 176,
+    "failed": 0,
+    "casts": 176,
+    "duration_seconds": 0.0
+  },
+  "failed": [],
+  "missing_override": [],
+  "wrong_commit": []
+}
+```
+
+Every per-case result reports `override_debs_installed == true` and
+`port_commit == 90e0c784097445cc9083ac5a8e1669b2702aea25`.
+`validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json` still
+records the same eight local libwebp override packages and hashes from safe
+commit `90e0c784097445cc9083ac5a8e1669b2702aea25`.
+
+No validator tests, shared scripts, manifests, or tools were changed.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 2 is clean. The ABI/runtime/SharpYuv gates pass, the unsafe audit is
+current with no tracked diff, and the full selected libwebp validator port
+matrix now has consistent artifacts: 5/5 source cases, 171/171 usage cases,
+176/176 total cases, 176 casts, and 0 failures. No waiver was used.
