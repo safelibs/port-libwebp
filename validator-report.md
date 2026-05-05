@@ -893,3 +893,112 @@ All checks above passed. The full validator proof artifacts remain current
 for safe source/package commit `9c53734384013d42ca3332102165dce30ec77b34`;
 this bounce fix did not change the pipeline safe source that produced those
 packages.
+
+---
+
+# libwebp Validator Report - Phase 5: Encoder Core And Still-Image Write Path
+
+## Run summary
+
+Phase ID: `impl-encode-core`
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 9c53734384013d42ca3332102165dce30ec77b34
+Inline `/home/yans/code/...` safe source commit tested: d5ef3db8d2d2de1a9e71709dac7df6cc0f05b1d9
+Verification date: 2026-05-05 04:01:04 MST (-0700).
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed,
+was clean, and `git -C validator pull --ff-only` completed with
+`Already up to date.` I re-read `validator/README.md` and kept using its
+selected-library local override/proof flow for the existing libwebp validator
+artifacts. The validator tests, shared scripts, manifests, and tools were not
+edited.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+sed -n '1,240p' validator/README.md
+cargo build --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -p libwebp --release
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/abi/original --libs libwebp --subset encode
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-sonames --libs libwebp
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/abi/original --libs libwebp
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api
+ctest --test-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/build/tests -R encode_api --output-on-failure
+cargo test --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact
+cargo test --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact
+```
+
+The same encode phase gate was also run against the literal inline phase
+source checkout:
+
+```bash
+cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset encode
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebp
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api
+ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure
+cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact
+cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact
+```
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+SOURCE_COUNT=$(find tests/libwebp/tests/cases/source -maxdepth 1 -name '*.sh' | wc -l)
+USAGE_COUNT=$(find tests/libwebp/tests/cases/usage -maxdepth 1 -name '*.sh' | wc -l)
+TOTAL_COUNT=$((SOURCE_COUNT + USAGE_COUNT))
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases "$SOURCE_COUNT" \
+  --min-usage-cases "$USAGE_COUNT" \
+  --min-cases "$TOTAL_COUNT" \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+The existing validator summary remains:
+
+```json
+{
+  "schema_version": 2,
+  "library": "libwebp",
+  "mode": "port",
+  "cases": 176,
+  "source_cases": 5,
+  "usage_cases": 171,
+  "passed": 176,
+  "failed": 0,
+  "casts": 176,
+  "duration_seconds": 0.0
+}
+```
+
+## Failures found and fixes applied
+
+No encode C API, symbol-subset, SONAME, `DT_NEEDED`, CVE-2016-9085,
+oversized picture allocation, or validator proof failure was found. The
+pipeline and inline source checkout encode files for this phase were already
+identical, and no safe-side regression test was needed because there was no
+real libwebp-safe validator failure in the encode-core area.
+
+No validator testcase waiver was added.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 5 encode core is clean. The public config/picture/memory-writer helpers,
+still-image encode entry points, lossless convenience encoders, and encode-side
+allocation hardening all pass the focused phase gates in both safe worktrees.
+The existing full libwebp validator proof artifacts still verify at 176/176
+cases with 0 failures and 176 casts for safe package commit
+`9c53734384013d42ca3332102165dce30ec77b34`.
