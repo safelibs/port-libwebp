@@ -1002,3 +1002,119 @@ allocation hardening all pass the focused phase gates in both safe worktrees.
 The existing full libwebp validator proof artifacts still verify at 176/176
 cases with 0 failures and 176 casts for safe package commit
 `9c53734384013d42ca3332102165dce30ec77b34`.
+
+---
+
+# libwebp Validator Report - Phase 6: Mux And Animation Encode
+
+## Run summary
+
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 0c73fb954396969ce2f833e7f39e958d8ef91811
+Inline `/home/yans/code/...` safe source commit tested:
+d5ef3db8d2d2de1a9e71709dac7df6cc0f05b1d9
+Final verification date: 2026-05-05 (America/Phoenix).
+
+## Validator setup
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed, was
+clean before use, and `git -C validator pull --ff-only` reported
+`Already up to date.` I read `validator/README.md` and used its
+selected-library local override/proof flow for the in-place libwebp artifacts.
+The validator tests, manifests, shared scripts, and tools were not modified.
+
+The full validator matrix was not rerun in this phase because no tracked safe
+source or package artifact changed. The existing full libwebp validator
+artifacts under `validator/artifacts/libwebp-safe/` were consumed in place and
+the proof verifier still accepts them at 176/176 cases with 0 failures. Those
+package artifacts remain locked to safe package commit
+`9c53734384013d42ca3332102165dce30ec77b34`.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator status --short
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo build --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/abi/original --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/abi/original --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/safelibs/pipeline/ports/port-libwebp/original/tests/public_api_test.c
+ctest --test-dir /home/yans/safelibs/pipeline/ports/port-libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+cargo run -p xtask --manifest-path /home/yans/safelibs/pipeline/ports/port-libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/safelibs/pipeline/ports/port-libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux
+```
+
+The same mux phase gate was also run against the literal inline phase source
+checkout:
+
+```bash
+cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c
+ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux
+```
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+SOURCE_COUNT=$(find tests/libwebp/tests/cases/source -maxdepth 1 -name '*.sh' | wc -l)
+USAGE_COUNT=$(find tests/libwebp/tests/cases/usage -maxdepth 1 -name '*.sh' | wc -l)
+TOTAL_COUNT=$((SOURCE_COUNT + USAGE_COUNT))
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases "$SOURCE_COUNT" \
+  --min-usage-cases "$USAGE_COUNT" \
+  --min-cases "$TOTAL_COUNT" \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+The existing validator summary remains:
+
+```json
+{
+  "schema_version": 2,
+  "library": "libwebp",
+  "mode": "port",
+  "cases": 176,
+  "source_cases": 5,
+  "usage_cases": 171,
+  "passed": 176,
+  "failed": 0,
+  "casts": 176,
+  "duration_seconds": 0.0
+}
+```
+
+## Failures found and fixes applied
+
+No mux, animation-encode, symbol, SONAME, `DT_NEEDED`, upstream public API, or
+relink failure was found. No prior checker bounce or real libwebp-safe
+validator failure in this phase's mux/animation-encode area was present, so no
+new safe-side regression test or source fix was needed.
+
+No validator testcase waiver was added.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 6 mux and animation encode is clean. `WebPGetMuxVersion`, `WebPMuxSet*`,
+`WebPMuxPushFrame`, `WebPMuxAssemble`, mux read/query helpers, and the public
+animation encoder entry points build and link through `libwebpmux`; the
+unchanged upstream `public_api_test.c` passes; and the mux-facing original
+object relink subset passes in both the pipeline safe tree and the literal
+inline source checkout.
