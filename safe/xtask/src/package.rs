@@ -945,6 +945,15 @@ if(NOT TARGET WebP::webpdemux)
     INTERFACE_LINK_LIBRARIES "WebP::webp")
 endif()
 
+if(NOT TARGET WebP::webpmux)
+  add_library(WebP::webpmux SHARED IMPORTED)
+  set_target_properties(WebP::webpmux PROPERTIES
+    IMPORTED_LOCATION "${_WEBP_LIBRARY_DIR}/libwebpmux.so.3"
+    IMPORTED_SONAME "libwebpmux.so.3"
+    INTERFACE_INCLUDE_DIRECTORIES "${_WEBP_INCLUDE_DIR}"
+    INTERFACE_LINK_LIBRARIES "WebP::webp")
+endif()
+
 if(NOT TARGET WebP::libwebpmux)
   add_library(WebP::libwebpmux SHARED IMPORTED)
   set_target_properties(WebP::libwebpmux PROPERTIES
