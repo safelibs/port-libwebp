@@ -682,3 +682,82 @@ Waived testcase ids:
 Phase 3 is clean. The decoder core and `libwebpdecoder` gates pass in
 both safe worktrees, the existing full libwebp validator port proof still
 passes with 176/176 cases and 0 failures, and no waiver was used.
+
+---
+
+# libwebp Validator Report - Phase 4: Demux and Animation Decode
+
+## Run summary
+
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: cb5c55912bac422c3d3c2b894c2e26d6e74050e4 plus the
+`impl-demux-animdecode` working tree diff committed with this report.
+Final verification date: 2026-05-05 (America/Phoenix).
+
+## Validator setup
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed,
+was clean, and `git -C validator pull --ff-only` completed with
+`Already up to date.` I re-read `validator/README.md`; this phase did not
+edit validator tests, shared scripts, manifests, or tools.
+
+The full libwebp validator matrix was not rerun in this implement phase.
+The phase work was focused on the demux/animation decode gate and did not
+refresh Debian package artifacts for a new full-matrix run.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo build --manifest-path safe/Cargo.toml -p libwebpdemux --release
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-symbols --baseline-dir safe/abi/original --libs libwebpdemux
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-sonames --libs libwebpdemux
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-needed --baseline-dir safe/abi/original --libs libwebpdemux
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  build-c-tests --suite demux_animdecode
+ctest --test-dir safe/build/tests -R demux_animdecode --output-on-failure
+cargo run -p xtask --manifest-path safe/Cargo.toml -- unsafe-audit
+git diff --exit-code -- safe/docs/unsafe-audit.md
+git diff --check
+```
+
+All final phase-gate commands above passed. The build still emits the
+pre-existing codec translation warnings; no demux-specific warning was
+introduced.
+
+## Failures found and fixes applied
+
+The focused C oracle test was not reliably loading the safe demux shared
+object because the executable needs `libwebpdemux.so.2` at runtime while
+Cargo emits `libwebpdemux.so`. I updated the `libwebpdemux` build glue to
+create the local SONAME symlink in the active Cargo profile directory, so
+`ctest` resolves the safe demux library through its existing
+`LD_LIBRARY_PATH`.
+
+After adding an oracle regression that places the existing 2x2 animation
+frame at canvas offset `(2,2)`, the safe animation decoder initially failed
+`WebPAnimDecoderGetNext()` while the oracle accepted the frame. The fix
+changes the external-memory bounds calculation to use the decoder's minimum
+RGB buffer span, `(frame_height - 1) * canvas_stride + frame_width * 4`,
+instead of requiring a full extra canvas stride after the final subframe row.
+
+No unsafe-audit content update was required after the final refactor because
+the fix did not add explicit unsafe operations. No validator testcase waiver
+was added.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 4 is clean for the focused demux/animation decode gate. The safe
+`libwebpdemux` symbols, SONAME, `DT_NEEDED`, demux/animdecode C oracle test,
+and unsafe audit all pass; the validator checkout remains unchanged at
+`87b321fe728340d6fc6dd2f638583cca82c667c3`.
