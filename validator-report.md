@@ -848,13 +848,12 @@ full libwebp validator matrix passes 176/176 cases with 0 failures and
 176 casts, and the proof artifacts now record the phase package commit
 `9c53734384013d42ca3332102165dce30ec77b34`. No waiver was used.
 
-## Senior-tester bounce disposition
+## Checker bounce disposition
 
-The senior-tester bounce reported two issues: the generated `workflow.yaml`
-was left as an uncommitted tracked change, and the audit diff command was
-being run from `/home/yans/safelibs/pipeline/ports/port-libwebp` against a
-path owned by the separate `/home/yans/code/safelibs/ported/libwebp`
-repository.
+The checker bounces reported two issues outside the demux implementation
+itself: the full validator artifacts initially still pointed at the old safe
+package commit, and a later cleanup commit brought a generated `workflow.yaml`
+rewrite into the phase diff.
 
 Fixes applied on 2026-05-05:
 
@@ -862,12 +861,17 @@ Fixes applied on 2026-05-05:
   changes into the `/home/yans/code/safelibs/ported/libwebp` checkout as
   commit `d5ef3db8d2d2de1a9e71709dac7df6cc0f05b1d9` (`impl-demux-animdecode`),
   so the literal phase commands no longer test stale demux code.
-- Updated the generated workflow prompts in place so tracked Git cleanliness
-  checks for `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
-  and `/home/yans/code/safelibs/ported/libwebp/safe/abi/original` run through
-  `git -C /home/yans/code/safelibs/ported/libwebp diff --exit-code -- ...`.
-  This preserves the same checked artifact while executing in the repository
-  that owns it.
+- Restored `workflow.yaml` to the pre-phase content from
+  `cb5c55912bac422c3d3c2b894c2e26d6e74050e4`, removing it from the final
+  base-to-HEAD phase diff.
+- Rechecked the unsafe audit artifact from the repository that owns the
+  absolute safe path using
+  `git -C /home/yans/code/safelibs/ported/libwebp diff --exit-code -- safe/docs/unsafe-audit.md`.
+  The path-only form used by the checker,
+  `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`,
+  is rejected by Git when invoked from
+  `/home/yans/safelibs/pipeline/ports/port-libwebp` because that file is
+  outside the port repository worktree.
 
 Additional checks executed after the bounce:
 
