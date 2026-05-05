@@ -587,3 +587,98 @@ Phase 2 is clean. The ABI/runtime/SharpYuv gates pass, the unsafe audit is
 current with no tracked diff, and the full selected libwebp validator port
 matrix now has consistent artifacts: 5/5 source cases, 171/171 usage cases,
 176/176 total cases, 176 casts, and 0 failures. No waiver was used.
+
+---
+
+# libwebp Validator Report - Phase 3: Decoder Core and libwebpdecoder Parity
+
+## Run summary
+
+Phase ID: `impl-decode-core`
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 90e0c784097445cc9083ac5a8e1669b2702aea25
+Inline `/home/yans/code/...` safe source commit tested: 6c7ba877dfe4c4e0aaf5697af4f51cc3a906a9e8
+Parent workspace commit before phase report: 86a8a1a7561bcafb6a5ba34bd06afdb9ac75d3c6
+Verification date: 2026-05-05 02:57:05 MST (-0700).
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` existed,
+was clean, and `git -C validator pull --ff-only` completed with
+`Already up to date.` I re-read `validator/README.md` and continued to
+use its selected-library local override flow for libwebp validator
+artifacts. The validator suite files were not edited.
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo build --manifest-path safe/Cargo.toml \
+  -p libwebpdecoder -p libwebp --release
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-symbols --baseline-dir safe/abi/original --libs libwebpdecoder
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-symbol-subset --baseline-dir safe/abi/original \
+  --libs libwebp --subset decode
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-sonames --libs libwebpdecoder
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  verify-needed --baseline-dir safe/abi/original --libs libwebpdecoder
+cargo run -p xtask --manifest-path safe/Cargo.toml -- \
+  build-c-tests --suite decode_api
+ctest --test-dir safe/build/tests -R decode_api --output-on-failure
+cargo test --manifest-path safe/Cargo.toml \
+  -p webp-core cve_2020_36332 -- --exact
+cargo test --manifest-path safe/Cargo.toml \
+  -p webp-core malformed_huffman_tables -- --exact
+```
+
+The same decode-core phase gate commands were also run against
+`/home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`; all passed.
+The phase-scoped decode, DSP, utility, libwebp/libwebpdecoder export,
+C regression, and malformed-input regression files are byte-for-byte
+identical between the pipeline safe tree and the inline
+`/home/yans/code/...` safe tree.
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases 5 \
+  --min-usage-cases 171 \
+  --min-cases 176 \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+The existing libwebp validator proof artifacts verified successfully:
+176 per-case result JSON files, 177 logs including the dependent-package
+install log, 176 casts, and summary totals of 5 source cases, 171 usage
+cases, 176 total cases, 176 passed, and 0 failed.
+
+## Failures found and fixes applied
+
+No decode ABI, symbol subset, SONAME, `DT_NEEDED`, C decode API,
+incremental decode, exported helper symbol, CVE, malformed Huffman table,
+or validator proof failure was found in this phase. No safe-side code fix
+was required, and no additional regression test was added because there
+was no libwebp-safe validator or phase-gate failure to reproduce.
+
+No validator tests, shared scripts, manifests, or tools were changed.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 3 is clean. The decoder core and `libwebpdecoder` gates pass in
+both safe worktrees, the existing full libwebp validator port proof still
+passes with 176/176 cases and 0 failures, and no waiver was used.
