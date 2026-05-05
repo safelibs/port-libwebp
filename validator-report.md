@@ -1118,3 +1118,161 @@ animation encoder entry points build and link through `libwebpmux`; the
 unchanged upstream `public_api_test.c` passes; and the mux-facing original
 object relink subset passes in both the pipeline safe tree and the literal
 inline source checkout.
+
+---
+
+# libwebp Validator Report - Phase 7: Packaging Harness
+
+## Run summary
+
+Validator URL: https://github.com/safelibs/validator
+Validator commit: 87b321fe728340d6fc6dd2f638583cca82c667c3
+Safe source commit tested: 2e1c17860c18ada8f97a628adb0f20a2dad18ba7
+Implementation commit: 2e1c17860c18ada8f97a628adb0f20a2dad18ba7
+Final verification date: 2026-05-05 (America/Phoenix).
+
+Mode: port
+Library: libwebp
+Local release tag: local-2e1c17860c18
+Override deb root: validator/artifacts/debs/local
+Override leaf: validator/artifacts/debs/local/libwebp/
+Artifact root: validator/artifacts/libwebp-safe/
+Lock JSON: validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json
+Proof JSON: validator/artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json
+Per-case results dir: validator/artifacts/libwebp-safe/port/results/libwebp/
+Per-case logs dir: validator/artifacts/libwebp-safe/port/logs/libwebp/
+Per-case casts dir: validator/artifacts/libwebp-safe/port/casts/libwebp/
+
+`/home/yans/safelibs/pipeline/ports/port-libwebp/validator` already existed.
+`git -C validator pull --ff-only` reported `Already up to date.` The checkout
+was clean before and after use. I reread `validator/README.md` and used its
+selected-library local override flow. No validator tests, shared scripts,
+manifests, or tools were modified.
+
+## Safe Debian packages
+
+All packages below were generated with the existing authoritative path:
+
+```bash
+cargo run -p xtask --manifest-path safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+```
+
+The eight `.deb` files were copied into
+`validator/artifacts/debs/local/libwebp/`, and
+`validator/artifacts/libwebp-safe/proof/local-port-debs-lock.json` was
+refreshed from the copied package filenames, sizes, and SHA-256 hashes.
+
+| Package | Filename | Version | Architecture | SHA-256 | Size (bytes) |
+|---|---|---|---|---|---|
+| libwebp7 | libwebp7_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `fe95290b0d8fece7d9daa6e105d7bc93fcbf4f502b0286d4ffb4c26a570dff93` | 271926 |
+| libwebpdemux2 | libwebpdemux2_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `8155a463a1d378c4cc188fcfcd308a1bbf0af4b1400058026de9588002f76fc3` | 139400 |
+| libwebpmux3 | libwebpmux3_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `d7e0d3cd735ae2b3688cc6ad5a6f4537d15d8bcb97e3e6b145416f33308cea6b` | 292306 |
+| libwebpdecoder3 | libwebpdecoder3_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `3050ba41234d5eb92e85236d98498edbee544ceb6c7011f0f6c306e525a1a35d` | 131772 |
+| libsharpyuv0 | libsharpyuv0_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `0d7997f9c888e3bc69d8b9e1b64e52e0ae0c4a676a6cc4f8ed65d4d3148e5e61` | 91776 |
+| libwebp-dev | libwebp-dev_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `dd69d6f3ab4d4ef999ee3e986569ed3d3e3e37ed77638a151cc0d8d4197b5d00` | 445532 |
+| libsharpyuv-dev | libsharpyuv-dev_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `db118f662844c623f4d7ca9ffa15e7161564a5e2e152e46fc3926aa0b05c7b19` | 94194 |
+| webp | webp_1.3.2-0.4build3+safelibs1_amd64.deb | 1.3.2-0.4build3+safelibs1 | amd64 | `11bf556e7d1ae98928823ab830660b76dc9179c4a9f1d8f99bfec1a0c883f30d` | 111160 |
+
+## Commands and checks executed
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/`:
+
+```bash
+git -C validator pull --ff-only
+git -C validator rev-parse HEAD
+git -C validator remote get-url origin
+cargo fmt --manifest-path safe/Cargo.toml --all --check
+cargo check -p xtask --manifest-path safe/Cargo.toml
+make -C validator check-testcases
+git diff --check -- test-original.sh safe/xtask/src/package.rs
+git commit -m impl-packaging-harness
+cargo run -p xtask --manifest-path safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+cargo run -p xtask --manifest-path safe/Cargo.toml -- verify-needed --baseline-dir safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+cargo run -p xtask --manifest-path safe/Cargo.toml -- verify-install-tree --baseline safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs
+dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/bin/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux|anim_diff|anim_dump)$'
+dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/share/man/man1/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux)\.1(\.gz)?$'
+LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs ./test-original.sh --variant safe --only pkg-config-libwebp
+LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs ./test-original.sh --variant safe --only pkg-config-libsharpyuv
+LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs ./test-original.sh --variant safe --only cmake-webp
+LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs ./test-original.sh --variant safe
+```
+
+From `/home/yans/safelibs/pipeline/ports/port-libwebp/validator/`:
+
+```bash
+bash test.sh \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --mode port \
+  --override-deb-root artifacts/debs/local \
+  --port-deb-lock artifacts/libwebp-safe/proof/local-port-debs-lock.json \
+  --library libwebp \
+  --record-casts
+
+python3 tools/verify_proof_artifacts.py \
+  --config repositories.yml \
+  --tests-root tests \
+  --artifact-root artifacts/libwebp-safe \
+  --proof-output artifacts/libwebp-safe/proof/libwebp-safe-port-proof.json \
+  --mode port \
+  --library libwebp \
+  --require-casts \
+  --min-source-cases 5 \
+  --min-usage-cases 171 \
+  --min-cases 176 \
+  --ports-root /home/yans/safelibs/pipeline/ports
+```
+
+The full `test-original.sh --variant safe` run executed the tool smoke matrix,
+all six installed-surface probes, and the fixed 12-dependent inventory in the
+existing order. The validator per-result invariant scan checked 176 testcase
+JSON files and confirmed `status == passed`, `override_debs_installed == true`,
+`port_commit == 2e1c17860c18ada8f97a628adb0f20a2dad18ba7`, and all eight
+override packages present in every case.
+
+## Validator matrix result
+
+```json
+{
+  "schema_version": 2,
+  "library": "libwebp",
+  "mode": "port",
+  "cases": 176,
+  "source_cases": 5,
+  "usage_cases": 171,
+  "passed": 176,
+  "failed": 0,
+  "casts": 176,
+  "duration_seconds": 0.0
+}
+```
+
+The proof totals match the summary: 176 cases, 5 source cases, 171 usage cases,
+176 passed, 0 failed, and 176 casts.
+
+## Failures found and fixes applied
+
+The packaging harness had a contract mismatch with this phase: the generated
+CMake package exposed `WebP::libwebpmux`, while the phase requires consumers to
+use `WebP::webpmux`. I fixed `safe/xtask/src/package.rs` so generated
+`WebPTargets.cmake` exposes `WebP::webpmux` and preserves
+`WebP::libwebpmux` as a compatibility target. I also updated the CMake consumer
+probe in `test-original.sh` to require and link `WebP::webpmux`.
+
+The `pkg-config-libwebp` probe previously only checked version symbols. I
+strengthened it to compile and run a consumer that uses `pkg-config --cflags
+--libs libwebp`, reads the shared WebP fixture, calls `WebPGetInfo`, and
+decodes it through `WebPDecodeRGBA`.
+
+No libwebp-safe validator testcase failed. No safe-side regression test was
+needed for validator failures in this phase.
+
+Waived testcase ids:
+
+## Final status
+
+Phase 7 is clean. The refreshed safe packages install the expected Ubuntu
+24.04 libwebp package surface, the direct pkg-config and CMake consumers pass,
+the existing Docker dependent harness passes end-to-end, and the full libwebp
+validator port matrix passes with zero unwaived failures.
