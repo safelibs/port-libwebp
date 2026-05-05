@@ -2,6 +2,8 @@ use serde_json::from_str;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -88,6 +90,14 @@ fn profile_output_dir(target_dir: &Path, profile: &str) -> PathBuf {
     }
 }
 
+fn profile_dir(out_dir: &Path) -> PathBuf {
+    out_dir
+        .ancestors()
+        .nth(3)
+        .expect("OUT_DIR did not contain a cargo profile directory")
+        .to_path_buf()
+}
+
 fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let baseline_dir = manifest_dir.join("../../abi/original");
@@ -103,6 +113,7 @@ fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {
     let sonames: BTreeMap<String, String> =
         from_str(&fs::read_to_string(&sonames_path).unwrap()).unwrap();
     let soname = sonames.get(library).unwrap();
+    ensure_soname_link(&out_dir, library, soname);
 
     let version_node = library.to_ascii_uppercase();
     let mut version_script = format!("{version_node} {{\n  global:\n");
@@ -129,3 +140,24 @@ fn emit_linker_baseline(library: &str, extra_link_args: &[&str]) {
         println!("cargo:rustc-cdylib-link-arg={link_arg}");
     }
 }
+
+#[cfg(unix)]
+fn ensure_soname_link(out_dir: &Path, library: &str, soname: &str) {
+    let profile_dir = profile_dir(out_dir);
+    let link_path = profile_dir.join(soname);
+    let target = PathBuf::from(format!("{library}.so"));
+
+    if link_path.file_name() == target.file_name() {
+        return;
+    }
+    if fs::read_link(&link_path).is_ok_and(|existing| existing == target) {
+        return;
+    }
+    if fs::symlink_metadata(&link_path).is_ok() {
+        fs::remove_file(&link_path).expect("failed to remove stale libwebpdemux SONAME link");
+    }
+    unix_fs::symlink(&target, &link_path).expect("failed to create libwebpdemux SONAME link");
+}
+
+#[cfg(not(unix))]
+fn ensure_soname_link(_out_dir: &Path, _library: &str, _soname: &str) {}

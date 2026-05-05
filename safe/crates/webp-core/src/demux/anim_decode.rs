@@ -472,18 +472,45 @@ pub unsafe fn WebPAnimDecoderGetNext(
     }
 
     let stride = (width as u64).saturating_mul(NUM_CHANNELS as u64);
-    let size = (iter.height as u64).saturating_mul(stride);
-    let out_offset = (iter.y_offset as u64)
+    let frame_width = if iter.width > 0 { iter.width as u64 } else { 0 };
+    let frame_height = if iter.height > 0 {
+        iter.height as u64
+    } else {
+        0
+    };
+    let x_offset = if iter.x_offset >= 0 {
+        iter.x_offset as u64
+    } else {
+        u64::MAX
+    };
+    let y_offset = if iter.y_offset >= 0 {
+        iter.y_offset as u64
+    } else {
+        u64::MAX
+    };
+    let row_bytes = frame_width.saturating_mul(NUM_CHANNELS as u64);
+    let size = frame_height
+        .saturating_sub(1)
         .saturating_mul(stride)
-        .saturating_add((iter.x_offset as u64).saturating_mul(NUM_CHANNELS as u64));
+        .saturating_add(row_bytes);
+    let out_offset = y_offset
+        .saturating_mul(stride)
+        .saturating_add(x_offset.saturating_mul(NUM_CHANNELS as u64));
     let total_size = (width as u64)
         .saturating_mul(height as u64)
         .saturating_mul(NUM_CHANNELS as u64);
-    if !check_size_overflow(size)
+    let output_end = out_offset.checked_add(size).unwrap_or(u64::MAX);
+    if iter.x_offset < 0
+        || iter.y_offset < 0
+        || iter.width <= 0
+        || iter.height <= 0
+        || !check_size_overflow(size)
         || !check_size_overflow(out_offset)
         || !check_size_overflow(total_size)
+        || stride > i32::MAX as u64
+        || row_bytes > stride
         || out_offset > total_size
-        || out_offset.saturating_add(size) > total_size
+        || output_end > total_size
     {
         unsafe { WebPDemuxReleaseIterator(&mut iter) };
         return 0;
