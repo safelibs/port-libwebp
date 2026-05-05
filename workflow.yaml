@@ -1,0 +1,1890 @@
+vars:
+  GOAL: |
+    Execute the inline libwebp safe-port phase plan from .plan/phases using the phase order, IDs, types, and fixed bounce targets from .plan/workflow-structure.yaml.
+phases:
+- id: impl-abi-baseline
+  type: implement
+  prompt: |
+    You are the implementer for `impl-abi-baseline`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-abi-baseline`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/01-abi-baseline.md`
+
+    # Phase 1: ABI, Header, and Install-Surface Baseline Refresh
+
+    ## Phase Name
+    ABI, Header, and Install-Surface Baseline Refresh
+
+    ## Implement Phase ID
+    `impl-abi-baseline`
+
+    ## Preexisting Inputs
+    - `/home/yans/code/safelibs/ported/libwebp/original/CMakeLists.txt`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/{decode,demux,encode,mux,mux_types,types}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/libwebpdemux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/libwebpmux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/debian/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*`
+
+    ## New Outputs
+    - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/{libsharpyuv,libwebp,libwebpdecoder,libwebpdemux,libwebpmux}.exports`
+    - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/sonames.json`
+    - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`
+    - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`
+    - updated `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json`
+    - updated copied headers and install-surface templates only when the upstream `original/` snapshot changed
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/webp/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-abi-baseline-software-tester`.
+    - Reuse `capture_baseline` in `safe/xtask/src/baseline.rs:13-40`; do not invent a second baseline format.
+    - Keep the copied public headers literal. Do not generate headers from Rust types or from bindgen output.
+    - Preserve the explicit install-surface lists from `safe/xtask/src/package.rs:13-136`, including the exact tool binary names and exact manpage paths.
+    - Keep `safe/abi/original/relink-manifest.json` aligned with the relink fixtures defined in `safe/xtask/src/link.rs:15-34`.
+    - If no upstream-facing ABI or install-surface inputs changed, this phase should verify and leave the checked-in baseline untouched rather than rewriting it gratuitously.
+
+    ## Verification Phases
+    ### `check-abi-baseline-software-tester`
+    - Phase ID: `check-abi-baseline-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-baseline`
+    - purpose: verify that the checked-in headers and authoritative ABI/install-surface baseline manifests still match the upstream `original/` snapshot and remain the contract for later phases. Functional pkg-config/CMake consumer behavior is intentionally deferred to phase 7's packaged-harness checks.
+    - commands it should run:
+      - `cargo check --workspace --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- capture-baseline --original-dir /home/yans/code/safelibs/ported/libwebp/original --out-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/decode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/decode.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/demux.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/encode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/encode.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux_types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux_types.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/types.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv_csp.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv_csp.h`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+    ### `check-abi-baseline-senior-tester`
+    - Phase ID: `check-abi-baseline-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-baseline`
+    - purpose: review the baseline-refresh commit for minimality, ensure only intended upstream-mirroring assets changed, and confirm the baseline commands are sufficient for later phases to rely on.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+
+    ## Success Criteria
+    - The software tester runs the full baseline-capture and header-diff command list and fails if recapturing `safe/abi/original/*` leaves tracked diffs.
+    - The senior tester reviews `HEAD` for minimality and confirms the baseline files are still authoritative, not incidental build byproducts.
+    - This phase is manifest-level only; direct behavioral verification of the shipped pkg-config and CMake metadata belongs to phase 7 after the safe packages are built and installed.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-abi-baseline` before yielding.
+- id: check-abi-baseline-software-tester
+  type: check
+  bounce_target: impl-abi-baseline
+  prompt: |
+    You are a software-tester reviewer for `check-abi-baseline-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-abi-baseline` and verify this explicit check phase only. Use the fixed bounce target `impl-abi-baseline` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-abi-baseline`
+    - `/home/yans/code/safelibs/ported/libwebp/original/CMakeLists.txt`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/{decode,demux,encode,mux,mux_types,types}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/libwebpdemux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/libwebpmux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/debian/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-abi-baseline` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify that the checked-in headers and authoritative ABI/install-surface baseline manifests still match the upstream `original/` snapshot and remain the contract for later phases. Functional pkg-config/CMake consumer behavior is intentionally deferred to phase 7's packaged-harness checks.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/01-abi-baseline.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo check --workspace --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- capture-baseline --original-dir /home/yans/code/safelibs/ported/libwebp/original --out-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/decode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/decode.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/demux.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/encode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/encode.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux_types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux_types.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/types.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv.h
+    diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv_csp.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv_csp.h
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/abi/original
+    ```
+
+    ## Inline Verification Section
+    ### `check-abi-baseline-software-tester`
+    - Phase ID: `check-abi-baseline-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-baseline`
+    - purpose: verify that the checked-in headers and authoritative ABI/install-surface baseline manifests still match the upstream `original/` snapshot and remain the contract for later phases. Functional pkg-config/CMake consumer behavior is intentionally deferred to phase 7's packaged-harness checks.
+    - commands it should run:
+      - `cargo check --workspace --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- capture-baseline --original-dir /home/yans/code/safelibs/ported/libwebp/original --out-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/decode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/decode.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/demux.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/encode.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/encode.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/mux_types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/mux_types.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/src/webp/types.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/types.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv.h`
+      - `diff -u /home/yans/code/safelibs/ported/libwebp/original/sharpyuv/sharpyuv_csp.h /home/yans/code/safelibs/ported/libwebp/safe/include/webp/sharpyuv/sharpyuv_csp.h`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+
+    ## Success Criteria
+    - The software tester runs the full baseline-capture and header-diff command list and fails if recapturing `safe/abi/original/*` leaves tracked diffs.
+    - The senior tester reviews `HEAD` for minimality and confirms the baseline files are still authoritative, not incidental build byproducts.
+    - This phase is manifest-level only; direct behavioral verification of the shipped pkg-config and CMake metadata belongs to phase 7 after the safe packages are built and installed.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-abi-baseline-senior-tester
+  type: check
+  bounce_target: impl-abi-baseline
+  prompt: |
+    You are a senior-tester reviewer for `check-abi-baseline-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-abi-baseline` and verify this explicit check phase only. Use the fixed bounce target `impl-abi-baseline` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-abi-baseline`
+    - `/home/yans/code/safelibs/ported/libwebp/original/CMakeLists.txt`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/Makefile.am`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/{decode,demux,encode,mux,mux_types,types}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/{sharpyuv,sharpyuv_csp}.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/libwebpdemux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/libwebpmux.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/original/debian/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{baseline.rs,link.rs,package.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-abi-baseline` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review the baseline-refresh commit for minimality, ensure only intended upstream-mirroring assets changed, and confirm the baseline commands are sufficient for later phases to rely on.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/01-abi-baseline.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original
+    ```
+
+    ## Inline Verification Section
+    ### `check-abi-baseline-senior-tester`
+    - Phase ID: `check-abi-baseline-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-baseline`
+    - purpose: review the baseline-refresh commit for minimality, ensure only intended upstream-mirroring assets changed, and confirm the baseline commands are sufficient for later phases to rely on.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-baseline-manifests --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original`
+
+    ## Success Criteria
+    - The software tester runs the full baseline-capture and header-diff command list and fails if recapturing `safe/abi/original/*` leaves tracked diffs.
+    - The senior tester reviews `HEAD` for minimality and confirms the baseline files are still authoritative, not incidental build byproducts.
+    - This phase is manifest-level only; direct behavioral verification of the shipped pkg-config and CMake metadata belongs to phase 7 after the safe packages are built and installed.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-abi-runtime-sharpyuv
+  type: implement
+  prompt: |
+    You are the implementer for `impl-abi-runtime-sharpyuv`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-abi-runtime-sharpyuv`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/02-abi-runtime-sharpyuv.md`
+
+    # Phase 2: Public ABI Types, Common Runtime, and `libsharpyuv` Stabilization
+
+    ## Phase Name
+    Public ABI Types, Common Runtime, and `libsharpyuv` Stabilization
+
+    ## Implement Phase ID
+    `impl-abi-runtime-sharpyuv`
+
+    ## Preexisting Inputs
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/build.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/tests/ffi_layout.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/{mod.rs,csp.rs,dsp.rs,gamma.rs,convert.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/thread_utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/cpu.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## New Outputs
+    - updated public ABI type definitions and layout tests in `safe/crates/webp-abi/*`
+    - updated allocator/runtime/common scaffolding in `safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs}`
+    - updated SharpYuv implementation and FFI adapters in `safe/crates/webp-core/src/sharpyuv/*`
+    - updated export shims and linker glue in `safe/crates/libsharpyuv`, `safe/crates/libwebp`, and `safe/crates/libwebpdecoder`
+    - updated `safe/docs/unsafe-audit.md` if the explicit unsafe inventory changes
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-abi-runtime-sharpyuv-software-tester`.
+    - Preserve the field-exact `repr(C)` contract generated by `safe/crates/webp-abi/build.rs` rather than replacing it with a different ABI-test mechanism.
+    - Keep checked arithmetic centralized in `safe/crates/webp-core/src/checked.rs`; do not duplicate overflow logic inside individual export shims.
+    - Preserve `default_cpu_info` in `safe/crates/webp-core/src/cpu.rs:20`, the worker-interface state in `safe/crates/webp-core/src/threading.rs:127-149`, and the exported mutable `VP8GetCPUInfo` object expected by `safe/tests/c/runtime_abi_test.c:19-20`.
+    - Keep the linker-version-script pattern driven by `safe/abi/original/*` in every `build.rs`; do not hard-code SONAMEs or export lists in multiple places.
+    - Any unsafe reduction in this phase must stay confined to explicit ABI boundaries and runtime-global scaffolding files already tracked by `safe/docs/unsafe-audit.md`.
+
+    ## Verification Phases
+    ### `check-abi-runtime-sharpyuv-software-tester`
+    - Phase ID: `check-abi-runtime-sharpyuv-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
+    - purpose: verify the public `repr(C)` layouts, allocator/runtime globals, worker-interface hooks, `VP8GetCPUInfo`, and `libsharpyuv` symbol surface.
+    - commands it should run:
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp libwebpdecoder --subset common_runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- c-smoke --name sharpyuv_runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    ### `check-abi-runtime-sharpyuv-senior-tester`
+    - Phase ID: `check-abi-runtime-sharpyuv-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
+    - purpose: review the runtime and ABI commit for layout safety, confirm unsafe did not leak past the approved FFI/runtime boundary files, and validate the most important ABI gates a second time.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester executes all ABI/runtime/sharpyuv gates, including SONAME and `DT_NEEDED` checks for the three touched shared libraries, and confirms the committed unsafe audit file is already current.
+    - The senior tester reviews the commit diff and ensures no new unsafe escapes the existing audit categories or untracked files while the touched shared libraries still match their linker metadata baseline.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-abi-runtime-sharpyuv` before yielding.
+- id: check-abi-runtime-sharpyuv-software-tester
+  type: check
+  bounce_target: impl-abi-runtime-sharpyuv
+  prompt: |
+    You are a software-tester reviewer for `check-abi-runtime-sharpyuv-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-abi-runtime-sharpyuv` and verify this explicit check phase only. Use the fixed bounce target `impl-abi-runtime-sharpyuv` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-abi-runtime-sharpyuv`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/build.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/tests/ffi_layout.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/{mod.rs,csp.rs,dsp.rs,gamma.rs,convert.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/thread_utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/cpu.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-abi-runtime-sharpyuv` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify the public `repr(C)` layouts, allocator/runtime globals, worker-interface hooks, `VP8GetCPUInfo`, and `libsharpyuv` symbol surface.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/02-abi-runtime-sharpyuv.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp libwebpdecoder --subset common_runtime
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- c-smoke --name sharpyuv_runtime
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    ```
+
+    ## Inline Verification Section
+    ### `check-abi-runtime-sharpyuv-software-tester`
+    - Phase ID: `check-abi-runtime-sharpyuv-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
+    - purpose: verify the public `repr(C)` layouts, allocator/runtime globals, worker-interface hooks, `VP8GetCPUInfo`, and `libsharpyuv` symbol surface.
+    - commands it should run:
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp libwebpdecoder --subset common_runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- c-smoke --name sharpyuv_runtime`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester executes all ABI/runtime/sharpyuv gates, including SONAME and `DT_NEEDED` checks for the three touched shared libraries, and confirms the committed unsafe audit file is already current.
+    - The senior tester reviews the commit diff and ensures no new unsafe escapes the existing audit categories or untracked files while the touched shared libraries still match their linker metadata baseline.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-abi-runtime-sharpyuv-senior-tester
+  type: check
+  bounce_target: impl-abi-runtime-sharpyuv
+  prompt: |
+    You are a senior-tester reviewer for `check-abi-runtime-sharpyuv-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-abi-runtime-sharpyuv` and verify this explicit check phase only. Use the fixed bounce target `impl-abi-runtime-sharpyuv` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-abi-runtime-sharpyuv`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/src/{lib.rs,types.rs,decode.rs,encode.rs,demux.rs,mux.rs,sharpyuv.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/build.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/tests/ffi_layout.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/{alloc.rs,checked.rs,compat.rs,cpu.rs,threading.rs,lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/sharpyuv/{mod.rs,csp.rs,dsp.rs,gamma.rs,convert.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libsharpyuv/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/runtime_abi_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/thread_utils.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/cpu.h`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-abi-runtime-sharpyuv` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review the runtime and ABI commit for layout safety, confirm unsafe did not leak past the approved FFI/runtime boundary files, and validate the most important ABI gates a second time.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/02-abi-runtime-sharpyuv.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    ```
+
+    ## Inline Verification Section
+    ### `check-abi-runtime-sharpyuv-senior-tester`
+    - Phase ID: `check-abi-runtime-sharpyuv-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-abi-runtime-sharpyuv`
+    - purpose: review the runtime and ABI commit for layout safety, confirm unsafe did not leak past the approved FFI/runtime boundary files, and validate the most important ABI gates a second time.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-abi --test ffi_layout`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebp -p libwebpdecoder --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebp libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite runtime_abi`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R runtime_abi --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester executes all ABI/runtime/sharpyuv gates, including SONAME and `DT_NEEDED` checks for the three touched shared libraries, and confirms the committed unsafe audit file is already current.
+    - The senior tester reviews the commit diff and ensures no new unsafe escapes the existing audit categories or untracked files while the touched shared libraries still match their linker metadata baseline.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-decode-core
+  type: implement
+  prompt: |
+    You are the implementer for `impl-decode-core`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-decode-core`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/03-decode-core.md`
+
+    # Phase 3: Decoder Core and `libwebpdecoder` Parity
+
+    ## Phase Name
+    Decoder Core and `libwebpdecoder` Parity
+
+    ## Implement Phase ID
+    `impl-decode-core`
+
+    ## Preexisting Inputs
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dec/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/examples/{test.webp,test_ref.ppm}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## New Outputs
+    - updated decode, DSP, and utility modules in `safe/crates/webp-core/src/{decode,dsp,utils}`
+    - updated decode exports in `safe/crates/libwebpdecoder/src/lib.rs` and `safe/crates/libwebp/src/lib.rs`
+    - updated decode regression tests in `safe/tests/c/decode_api_test.c`
+    - updated malformed-input regression tests in `safe/crates/webp-core/tests/*`
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-decode-core-software-tester`.
+    - Preserve the public decode entry points in `safe/crates/webp-core/src/decode/webp_dec.rs`, especially `WebPDecode*Into`, `WebPDecode*`, `WebPGetInfo`, and `WebPDecode`.
+    - Preserve incremental decode semantics in `safe/crates/webp-core/src/decode/idec_dec.rs`, including null-pointer handling, partial-buffer progression, append/update transitions, and external-memory behavior.
+    - Preserve the non-header helper exports `VP8GetInfo` and `VP8LGetInfo`, because the C regression test references them directly.
+    - Route malformed-input size calculations and Huffman table sizing through checked arithmetic. Rust memory safety is not enough for the resource-exhaustion bugs captured by `relevant_cves.json`.
+    - If dependent-app or harness failures expose a decode regression, add the smallest reproducer to `safe/tests/c/` or `safe/crates/webp-core/tests/` before changing the implementation.
+
+    ## Verification Phases
+    ### `check-decode-core-software-tester`
+    - Phase ID: `check-decode-core-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-decode-core`
+    - purpose: verify the decode entry points, incremental decode state machine, exported helper symbols, and malformed-input hardening for the decode path.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset decode`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
+    ### `check-decode-core-senior-tester`
+    - Phase ID: `check-decode-core-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-decode-core`
+    - purpose: review the decode commit for semantic parity and regression-test quality, with particular attention to reproducer-first fixes for malformed or resource-exhausting input.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
+
+    ## Success Criteria
+    - The software tester runs the decode ABI checks plus the decode-specific CVE regressions.
+    - The senior tester confirms the phase added or strengthened the reproducer before modifying decode behavior and that the diff does not weaken incremental-decode semantics.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-decode-core` before yielding.
+- id: check-decode-core-software-tester
+  type: check
+  bounce_target: impl-decode-core
+  prompt: |
+    You are a software-tester reviewer for `check-decode-core-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-decode-core` and verify this explicit check phase only. Use the fixed bounce target `impl-decode-core` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-decode-core`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dec/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/examples/{test.webp,test_ref.ppm}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-decode-core` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify the decode entry points, incremental decode state machine, exported helper symbols, and malformed-input hardening for the decode path.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/03-decode-core.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset decode
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact
+    ```
+
+    ## Inline Verification Section
+    ### `check-decode-core-software-tester`
+    - Phase ID: `check-decode-core-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-decode-core`
+    - purpose: verify the decode entry points, incremental decode state machine, exported helper symbols, and malformed-input hardening for the decode path.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset decode`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdecoder`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
+
+    ## Success Criteria
+    - The software tester runs the decode ABI checks plus the decode-specific CVE regressions.
+    - The senior tester confirms the phase added or strengthened the reproducer before modifying decode behavior and that the diff does not weaken incremental-decode semantics.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-decode-core-senior-tester
+  type: check
+  bounce_target: impl-decode-core
+  prompt: |
+    You are a senior-tester reviewer for `check-decode-core-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-decode-core` and verify this explicit check phase only. Use the fixed bounce target `impl-decode-core` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-decode-core`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/decode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdecoder/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/src/lib.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/decode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/{cve_2020_36332.rs,malformed_huffman_tables.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dec/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/examples/{test.webp,test_ref.ppm}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-decode-core` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review the decode commit for semantic parity and regression-test quality, with particular attention to reproducer-first fixes for malformed or resource-exhausting input.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/03-decode-core.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact
+    ```
+
+    ## Inline Verification Section
+    ### `check-decode-core-senior-tester`
+    - Phase ID: `check-decode-core-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-decode-core`
+    - purpose: review the decode commit for semantic parity and regression-test quality, with particular attention to reproducer-first fixes for malformed or resource-exhausting input.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdecoder -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite decode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R decode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2020_36332 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core malformed_huffman_tables -- --exact`
+
+    ## Success Criteria
+    - The software tester runs the decode ABI checks plus the decode-specific CVE regressions.
+    - The senior tester confirms the phase added or strengthened the reproducer before modifying decode behavior and that the diff does not weaken incremental-decode semantics.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-demux-animdecode
+  type: implement
+  prompt: |
+    You are the implementer for `impl-demux-animdecode`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-demux-animdecode`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/04-demux-animdecode.md`
+
+    # Phase 4: Demux and Animation Decode
+
+    ## Phase Name
+    Demux and Animation Decode
+
+    ## Implement Phase ID
+    `impl-demux-animdecode`
+
+    ## Preexisting Inputs
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/{mod.rs,demux.rs,anim_decode.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## New Outputs
+    - updated demux and animation-decode implementation in `safe/crates/webp-core/src/demux/*`
+    - updated export shims and linker glue in `safe/crates/libwebpdemux/*`
+    - updated demux regression tests in `safe/tests/c/demux_animdecode_test.c`
+    - updated `safe/docs/unsafe-audit.md` if demux-side explicit unsafe changes
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-demux-animdecode-software-tester`.
+    - Preserve `WebPDemuxInternal`, `WebPDemuxGetI`, `WebPDemuxGetFrame`, and `WebPDemuxGetChunk` semantics in `safe/crates/webp-core/src/demux/demux.rs`.
+    - Preserve `WebPAnimDecoderOptionsInitInternal`, `WebPAnimDecoderNewInternal`, `WebPAnimDecoderGetInfo`, `WebPAnimDecoderGetNext`, and reset/delete behavior in `safe/crates/webp-core/src/demux/anim_decode.rs`.
+    - Keep the oracle-comparison strategy in `safe/tests/c/demux_animdecode_test.c`: frame iterators, chunk iterators, partial parsing, canvas properties, timestamps, blend/dispose behavior, and decoded output must stay aligned with the system library.
+    - Do not fork a separate decode implementation for demux fragments; demux and animdecode must continue to flow through the shared decode core.
+
+    ## Verification Phases
+    ### `check-demux-animdecode-software-tester`
+    - Phase ID: `check-demux-animdecode-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-demux-animdecode`
+    - purpose: verify `libwebpdemux` symbols, demux iterators, animation-decode semantics, and oracle-library parity for demux and animdecode APIs.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    ### `check-demux-animdecode-senior-tester`
+    - Phase ID: `check-demux-animdecode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-demux-animdecode`
+    - purpose: review demux and animation-decode changes for iterator ownership, partial-parse behavior, and oracle-comparison coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester reruns the full demux/animdecode C oracle suite and confirms the committed unsafe audit file is already current.
+    - The senior tester confirms the changed tests still compare against the oracle library rather than merely asserting internal Rust behavior.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-demux-animdecode` before yielding.
+- id: check-demux-animdecode-software-tester
+  type: check
+  bounce_target: impl-demux-animdecode
+  prompt: |
+    You are a software-tester reviewer for `check-demux-animdecode-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-demux-animdecode` and verify this explicit check phase only. Use the fixed bounce target `impl-demux-animdecode` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-demux-animdecode`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/{mod.rs,demux.rs,anim_decode.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-demux-animdecode` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify `libwebpdemux` symbols, demux iterators, animation-decode semantics, and oracle-library parity for demux and animdecode APIs.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/04-demux-animdecode.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdemux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    ```
+
+    ## Inline Verification Section
+    ### `check-demux-animdecode-software-tester`
+    - Phase ID: `check-demux-animdecode-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-demux-animdecode`
+    - purpose: verify `libwebpdemux` symbols, demux iterators, animation-decode semantics, and oracle-library parity for demux and animdecode APIs.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpdemux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester reruns the full demux/animdecode C oracle suite and confirms the committed unsafe audit file is already current.
+    - The senior tester confirms the changed tests still compare against the oracle library rather than merely asserting internal Rust behavior.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-demux-animdecode-senior-tester
+  type: check
+  bounce_target: impl-demux-animdecode
+  prompt: |
+    You are a senior-tester reviewer for `check-demux-animdecode-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-demux-animdecode` and verify this explicit check phase only. Use the fixed bounce target `impl-demux-animdecode` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-demux-animdecode`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/demux/{mod.rs,demux.rs,anim_decode.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpdemux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/demux_animdecode_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/demux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/webp/demux.h`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-demux-animdecode` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review demux and animation-decode changes for iterator ownership, partial-parse behavior, and oracle-comparison coverage.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/04-demux-animdecode.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    ```
+
+    ## Inline Verification Section
+    ### `check-demux-animdecode-senior-tester`
+    - Phase ID: `check-demux-animdecode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-demux-animdecode`
+    - purpose: review demux and animation-decode changes for iterator ownership, partial-parse behavior, and oracle-comparison coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpdemux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite demux_animdecode`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R demux_animdecode --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+
+    ## Success Criteria
+    - The software tester reruns the full demux/animdecode C oracle suite and confirms the committed unsafe audit file is already current.
+    - The senior tester confirms the changed tests still compare against the oracle library rather than merely asserting internal Rust behavior.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-encode-core
+  type: implement
+  prompt: "You are the implementer for `impl-encode-core`.\n\nFollow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.\n\nBefore yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-encode-core`.\n\n## Inline Phase Source\nSource file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/05-encode-core.md`\n\n# Phase 5: Encoder Core and Still-Image `libwebp` Write Path\n\n## Phase Name\nEncoder Core and Still-Image `libwebp` Write Path\n\n## Implement Phase ID\n`impl-encode-core`\n\n## Preexisting Inputs\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`\n\
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`\n- `/home/yans/code/safelibs/ported/libwebp/original/src/enc/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`\n- `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`\n\n## New Outputs\n- updated encode implementation in `safe/crates/webp-core/src/encode/*`\n- updated export/build glue in `safe/crates/libwebp/{build.rs,src/lib.rs}`\n- updated encode regression tests in `safe/tests/c/encode_api_test.c`\n- updated encode security tests in `safe/crates/webp-core/tests/encode_security.rs`\n\n## File Changes\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`\n\
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`\n- `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`\n\n## Implementation Details\n- The implementer must create a git commit for this phase before yielding to `check-encode-core-software-tester`.\n- Preserve the public config and picture helpers exercised by `safe/tests/c/encode_api_test.c`, especially `WebPConfigInit`, `WebPConfigLosslessPreset`, `WebPValidateConfig`, `WebPPictureCopy`, `WebPPictureView`, `WebPPictureCrop`, `WebPPictureRescale`, `WebPBlendAlpha`, `WebPMemoryWrite`, and the lossless convenience encoders.\n- Keep `WebPPictureAlloc`, `WebPPictureAllocARGB`, and `WebPPictureAllocYUVA` aligned with the checked-arithmetic hardening required by `CVE-2016-9085` and `oversized_picture_alloc`.\n- Preserve `WebPEncode` and its helper entry points in `safe/crates/webp-core/src/encode/webp_enc.rs` and `safe/crates/libwebp/src/lib.rs`.\n- Only modify `safe/crates/libwebp/build.rs`\
+    \ through the existing baseline-driven linker contract and the existing nested `libsharpyuv` dependency flow.\n- Do not make host-local upstream tool builds the required proof for encode correctness; the canonical tool/runtime proof remains phase 7\u2019s package + Docker harness.\n\n## Verification Phases\n### `check-encode-core-software-tester`\n- Phase ID: `check-encode-core-software-tester`\n- reviewer role: `software-tester`\n- type: `check`\n- fixed `bounce_target`: `impl-encode-core`\n- purpose: verify config initialization, picture ownership helpers, memory-writer behavior, still-image encode entry points, and encode-side arithmetic hardening.\n- commands it should run:\n  - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs\
+    \ libwebp --subset encode`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebp`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`\n  - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`\n  - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`\n  - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`\n### `check-encode-core-senior-tester`\n- Phase ID: `check-encode-core-senior-tester`\n- reviewer role: `senior-tester`\n\
+    - type: `check`\n- fixed `bounce_target`: `impl-encode-core`\n- purpose: review encode changes for source-compatibility of the public helpers and for reproducer-first arithmetic-hardening fixes.\n- commands it should run:\n  - `git status --short`\n  - `git show --stat --summary HEAD`\n  - `git diff --check HEAD^ HEAD`\n  - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`\n  - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`\n  - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`\n  - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`\n\n## Success Criteria\n- The software tester executes\
+    \ the encode C suite plus the encode-side CVE regressions.\n- The senior tester checks that every behavioral change is backed by a focused encode regression and that the public helper surface remains source-compatible.\n- All verifier commands listed above complete successfully in the stated order.\n- Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.\n- Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.\n\n## Git Commit Requirement\nThe implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-encode-core` before yielding.\n"
+- id: check-encode-core-software-tester
+  type: check
+  bounce_target: impl-encode-core
+  prompt: |
+    You are a software-tester reviewer for `check-encode-core-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-encode-core` and verify this explicit check phase only. Use the fixed bounce target `impl-encode-core` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-encode-core`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/enc/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-encode-core` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify config initialization, picture ownership helpers, memory-writer behavior, still-image encode entry points, and encode-side arithmetic hardening.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/05-encode-core.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset encode
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebp
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact
+    ```
+
+    ## Inline Verification Section
+    ### `check-encode-core-software-tester`
+    - Phase ID: `check-encode-core-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-encode-core`
+    - purpose: verify config initialization, picture ownership helpers, memory-writer behavior, still-image encode entry points, and encode-side arithmetic hardening.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbol-subset --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp --subset encode`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebp`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebp`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`
+
+    ## Success Criteria
+    - The software tester executes the encode C suite plus the encode-side CVE regressions.
+    - The senior tester checks that every behavioral change is backed by a focused encode regression and that the public helper surface remains source-compatible.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-encode-core-senior-tester
+  type: check
+  bounce_target: impl-encode-core
+  prompt: |
+    You are a senior-tester reviewer for `check-encode-core-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-encode-core` and verify this explicit check phase only. Use the fixed bounce target `impl-encode-core` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-encode-core`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/encode/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebp/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/encode_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests/encode_security.rs`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/enc/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/utils/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/dsp/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/sharpyuv/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-encode-core` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review encode changes for source-compatibility of the public helpers and for reproducer-first arithmetic-hardening fixes.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/05-encode-core.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact
+    ```
+
+    ## Inline Verification Section
+    ### `check-encode-core-senior-tester`
+    - Phase ID: `check-encode-core-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-encode-core`
+    - purpose: review encode changes for source-compatibility of the public helpers and for reproducer-first arithmetic-hardening fixes.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite encode_api`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R encode_api --output-on-failure`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core cve_2016_9085 -- --exact`
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p webp-core oversized_picture_alloc -- --exact`
+
+    ## Success Criteria
+    - The software tester executes the encode C suite plus the encode-side CVE regressions.
+    - The senior tester checks that every behavioral change is backed by a focused encode regression and that the public helper surface remains source-compatible.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-mux-animencode
+  type: implement
+  prompt: |
+    You are the implementer for `impl-mux-animencode`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-mux-animencode`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/06-mux-animencode.md`
+
+    # Phase 6: Mux and Animation Encode
+
+    ## Phase Name
+    Mux and Animation Encode
+
+    ## Implement Phase ID
+    `impl-mux-animencode`
+
+    ## Preexisting Inputs
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/{mod.rs,anim_encode.rs,muxedit.rs,muxinternal.rs,muxread.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## New Outputs
+    - updated mux and animation-encode implementation in `safe/crates/webp-core/src/mux/*`
+    - updated `libwebpmux` export/build glue
+    - updated upstream-public-API build glue in `safe/xtask` or `safe/tests/c` only if needed to keep the original C test compiling unchanged
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{verify.rs,package.rs}` if upstream public-API wiring needs adjustment
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/c/CMakeLists.txt` if the upstream public-API glue changes
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-mux-animencode-software-tester`.
+    - Preserve `WebPGetMuxVersion`, `WebPMuxSet*`, `WebPMuxPushFrame`, `WebPMuxAssemble`, the read/query helpers, and the animation encoder state machine exercised by `public_api_test.c`.
+    - Keep `WebPData` initialization, copy, clear, and ownership-transfer semantics stable across `muxinternal.rs`, `muxedit.rs`, `muxread.rs`, and `anim_encode.rs`.
+    - Preserve frame timestamp, loop count, key-frame, dispose/blend, and background handling tightly enough that the unchanged upstream `public_api_test.c` continues to pass.
+    - If a mux bug is discovered by later packaging or harness work, add the smallest targeted reproducer here before folding the fix into phase 8.
+
+    ## Verification Phases
+    ### `check-mux-animencode-software-tester`
+    - Phase ID: `check-mux-animencode-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-mux-animencode`
+    - purpose: verify mux APIs, animation-encode behavior, the unchanged upstream public API test, and early relink compatibility for the mux-facing fixtures.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
+    ### `check-mux-animencode-senior-tester`
+    - Phase ID: `check-mux-animencode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-mux-animencode`
+    - purpose: review mux/animencode changes for `WebPData` ownership, frame/chunk assembly semantics, and adequacy of upstream-public-API coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
+
+    ## Success Criteria
+    - The software tester runs the upstream public API test and a mux-specific relink subset.
+    - The senior tester confirms the diff keeps the public API test itself unchanged unless compile glue truly required an adjustment.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-mux-animencode` before yielding.
+- id: check-mux-animencode-software-tester
+  type: check
+  bounce_target: impl-mux-animencode
+  prompt: |
+    You are a software-tester reviewer for `check-mux-animencode-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-mux-animencode` and verify this explicit check phase only. Use the fixed bounce target `impl-mux-animencode` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-mux-animencode`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/{mod.rs,anim_encode.rs,muxedit.rs,muxinternal.rs,muxread.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-mux-animencode` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify mux APIs, animation-encode behavior, the unchanged upstream public API test, and early relink compatibility for the mux-facing fixtures.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/06-mux-animencode.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux
+    ```
+
+    ## Inline Verification Section
+    ### `check-mux-animencode-software-tester`
+    - Phase ID: `check-mux-animencode-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-mux-animencode`
+    - purpose: verify mux APIs, animation-encode behavior, the unchanged upstream public API test, and early relink compatibility for the mux-facing fixtures.
+    - commands it should run:
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
+
+    ## Success Criteria
+    - The software tester runs the upstream public API test and a mux-specific relink subset.
+    - The senior tester confirms the diff keeps the public API test itself unchanged unless compile glue truly required an adjustment.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-mux-animencode-senior-tester
+  type: check
+  bounce_target: impl-mux-animencode
+  prompt: |
+    You are a senior-tester reviewer for `check-mux-animencode-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-mux-animencode` and verify this explicit check phase only. Use the fixed bounce target `impl-mux-animencode` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-mux-animencode`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/mux/{mod.rs,anim_encode.rs,muxedit.rs,muxinternal.rs,muxread.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/libwebpmux/{Cargo.toml,build.rs,src/lib.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/original/src/mux/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-mux-animencode` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review mux/animencode changes for `WebPData` ownership, frame/chunk assembly semantics, and adequacy of upstream-public-API coverage.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/06-mux-animencode.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux
+    ```
+
+    ## Inline Verification Section
+    ### `check-mux-animencode-senior-tester`
+    - Phase ID: `check-mux-animencode-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-mux-animencode`
+    - purpose: review mux/animencode changes for `WebPData` ownership, frame/chunk assembly semantics, and adequacy of upstream-public-API coverage.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libwebpmux -p libwebpdemux -p libwebp --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test webpmux`
+
+    ## Success Criteria
+    - The software tester runs the upstream public API test and a mux-specific relink subset.
+    - The senior tester confirms the diff keeps the public API test itself unchanged unless compile glue truly required an adjustment.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-packaging-harness
+  type: implement
+  prompt: "You are the implementer for `impl-packaging-harness`.\n\nFollow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.\n\nBefore yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-packaging-harness`.\n\n## Inline Phase Source\nSource file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/07-packaging-harness.md`\n\n# Phase 7: Debian Packaging, Tool Surface, and Dependent-App Harness\n\n## Phase Name\nDebian Packaging, Tool Surface, and Dependent-App Harness\n\n## Implement Phase ID\n`impl-packaging-harness`\n\n## Preexisting Inputs\n- `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`\n\
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`\n- `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`\n- `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`\n- `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`\n- `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`\n- `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`\n- `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`\n- `/home/yans/code/safelibs/ported/libwebp/test-original.sh`\n- `/home/yans/code/safelibs/ported/libwebp/dependents.json`\n- `/home/yans/code/safelibs/ported/libwebp/original/examples/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/imageio/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/extras/*`\n- `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`\n\n## New Outputs\n- updated Debian source metadata in `safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`\n\
+    - updated package/install verification logic in `safe/xtask/src/package.rs` and `safe/xtask/src/verify.rs`\n- updated root Docker harness in `test-original.sh`\n- updated dependent inventory in `dependents.json` only if the chosen 12-app set intentionally changes\n- regenerated `.deb` packages in checker-selected output directories\n\n## File Changes\n- `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`\n- `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`\n- `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`\n- `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`\n- `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`\n\
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`\n- `/home/yans/code/safelibs/ported/libwebp/dependents.json`\n\n## Implementation Details\n- The implementer must create a git commit for this phase before yielding to `check-packaging-harness-software-tester`.\n- Preserve the explicit package/header/pkg-config/CMake/tool/manpage expectations in `safe/xtask/src/package.rs:13-136`.\n- Keep `verify_safe_debian_metadata`, `stage_dist`, `package_deb`, and `build_debian_packages_in_docker` in `safe/xtask/src/package.rs` as the authoritative package-building path. Do not introduce a second packaging pipeline.\n- Edit only the Debian source metadata under `safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`. Treat `safe/debian/tmp/`,\
+    \ `safe/debian/{libsharpyuv-dev,libsharpyuv0,libwebp-dev,libwebp7,libwebpdecoder3,libwebpdemux2,libwebpmux3,webp}/`, `safe/debian/*.substvars`, `safe/debian/files`, and `safe/debian/debhelper-build-stamp` as reproducible byproducts, not workflow inputs.\n- Preserve `test-original.sh`\u2019s existing topology: inventory validation at `319-353`, fixture preparation before dependent checks, tool smokes before dependent checks, and per-dependent `--only` filtering.\n- Treat `dependents.json` as the fixed current 12-application inventory. Do not rediscover a different dependent set unless the file itself is intentionally corrected in this phase.\n- Add three explicit installed-metadata harness checks to `test-original.sh`, outside `dependents.json` but inside the same Docker flow and `--only` interface: `pkg-config-libwebp`, `pkg-config-libsharpyuv`, and `cmake-webp`.\n- `pkg-config-libwebp` must compile and run a minimal C consumer with `pkg-config --cflags --libs libwebp` against the installed\
+    \ safe packages, exercising the installed headers plus at least one decode or encode entry point from `libwebp`.\n- `pkg-config-libsharpyuv` must compile and run a minimal C consumer with `pkg-config --cflags --libs libsharpyuv`, exercising an installed public SharpYuv symbol such as `SharpYuvGetVersion`.\n- `cmake-webp` must configure, build, and run an out-of-tree CMake consumer that uses `find_package(WebP CONFIG REQUIRED)` and imported targets `WebP::sharpyuv`, `WebP::webp`, `WebP::webpdemux`, and `WebP::webpmux`.\n- Execute those three metadata probes after package installation and fixture preparation, and before the dependent-application `run_check` sequence, so `test-original.sh --variant safe` covers them on every full harness pass.\n- Make compile compatibility explicit by preserving and, if needed, extending the existing inline compile probes already present for WebKitGTK, Qt 6, SDL2_image, libvips, and SAIL. If a missing SDK-style dependent needs compile coverage, add that\
+    \ probe inside `test-original.sh` rather than building an unrelated external harness.\n- Treat compile compatibility as the combination of:\n  - `verify-install-tree` proving the shipped `libwebp-dev` and `libsharpyuv-dev` headers, pkg-config files, linker symlinks, and CMake files are intact\n  - the direct installed-metadata probes `pkg-config-libwebp`, `pkg-config-libsharpyuv`, and `cmake-webp`\n  - the dependent compile probes in `test-original.sh`\n  - the C regression suites and upstream `public_api_test.c`\n- Keep runtime-only functional tests for application-style dependents in the same harness. If a runtime-only dependent exposes a compatibility bug, add the narrowest reproducible harness step or C regression before fixing the library.\n- If the inline Docker image needs additional dev/runtime packages, update the package list in `test-original.sh` and any corresponding Debian metadata together so the container remains self-contained.\n\n## Verification Phases\n### `check-packaging-harness-software-tester`\n\
+    - Phase ID: `check-packaging-harness-software-tester`\n- reviewer role: `software-tester`\n- type: `check`\n- fixed `bounce_target`: `impl-packaging-harness`\n- purpose: verify the Ubuntu 24.04 package surface, explicit tool/manpage install contract, direct installed pkg-config/CMake consumer behavior, compile-probe coverage for SDK-style dependents, and the full Docker-backed dependent/application matrix.\n- commands it should run:\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json\
+    \ --package-dir /tmp/libwebp-safe-debs`\n  - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/bin/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux|anim_diff|anim_dump)$'`\n  - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/share/man/man1/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux)\\\\.1(\\\\.gz)?$'`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh\
+    \ --variant safe --only webkitgtk`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pillow`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`\n\
+    ### `check-packaging-harness-senior-tester`\n- Phase ID: `check-packaging-harness-senior-tester`\n- reviewer role: `senior-tester`\n- type: `check`\n- fixed `bounce_target`: `impl-packaging-harness`\n- purpose: review the packaging/harness commit for fidelity to the existing Docker harness, ensure compile-probe and direct metadata-consumer coverage were strengthened in place rather than replaced, and rerun representative package/runtime gates.\n- commands it should run:\n  - `git status --short`\n  - `git show --stat --summary HEAD`\n  - `git diff --check HEAD^ HEAD`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`\n  - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs\
+    \ /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`\n  - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`\n\n## Success Criteria\n- The software tester runs the package build, install-tree validation, direct pkg-config/CMake consumer probes, tool-smoke matrix, targeted compile-probe dependents,\
+    \ targeted runtime dependents, and the full 12-dependent harness.\n- The senior tester confirms the harness stayed linear and in-place, and reruns representative package/tool/pkg-config/CMake/compile/runtime checks against the generated packages.\n- All verifier commands listed above complete successfully in the stated order.\n- Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.\n- Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.\n\n## Git Commit Requirement\nThe implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-packaging-harness` before yielding.\n"
+- id: check-packaging-harness-software-tester
+  type: check
+  bounce_target: impl-packaging-harness
+  prompt: |
+    You are a software-tester reviewer for `check-packaging-harness-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-packaging-harness` and verify this explicit check phase only. Use the fixed bounce target `impl-packaging-harness` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-packaging-harness`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+    - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+    - `/home/yans/code/safelibs/ported/libwebp/original/examples/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/imageio/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/extras/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-packaging-harness` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: verify the Ubuntu 24.04 package surface, explicit tool/manpage install contract, direct installed pkg-config/CMake consumer behavior, compile-probe coverage for SDK-style dependents, and the full Docker-backed dependent/application matrix.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/07-packaging-harness.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs
+    dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/bin/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux|anim_diff|anim_dump)$'
+    dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/share/man/man1/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux)\\.1(\\.gz)?$'
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pillow
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe
+    ```
+
+    ## Inline Verification Section
+    ### `check-packaging-harness-software-tester`
+    - Phase ID: `check-packaging-harness-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-packaging-harness`
+    - purpose: verify the Ubuntu 24.04 package surface, explicit tool/manpage install contract, direct installed pkg-config/CMake consumer behavior, compile-probe coverage for SDK-style dependents, and the full Docker-backed dependent/application matrix.
+    - commands it should run:
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/bin/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux|anim_diff|anim_dump)$'`
+      - `dpkg-deb -c /tmp/libwebp-safe-debs/webp_*.deb | rg 'usr/share/man/man1/(cwebp|dwebp|gif2webp|img2webp|vwebp|webpinfo|webpmux)\\.1(\\.gz)?$'`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pillow`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+
+    ## Success Criteria
+    - The software tester runs the package build, install-tree validation, direct pkg-config/CMake consumer probes, tool-smoke matrix, targeted compile-probe dependents, targeted runtime dependents, and the full 12-dependent harness.
+    - The senior tester confirms the harness stayed linear and in-place, and reruns representative package/tool/pkg-config/CMake/compile/runtime checks against the generated packages.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-packaging-harness-senior-tester
+  type: check
+  bounce_target: impl-packaging-harness
+  prompt: |
+    You are a senior-tester reviewer for `check-packaging-harness-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-packaging-harness` and verify this explicit check phase only. Use the fixed bounce target `impl-packaging-harness` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-packaging-harness`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/src/{main.rs,package.rs,tools.rs,verify.rs}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/needed.json`
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+    - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+    - `/home/yans/code/safelibs/ported/libwebp/original/examples/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/imageio/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/extras/*`
+    - `/home/yans/code/safelibs/ported/libwebp/original/man/*.1`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-packaging-harness` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: review the packaging/harness commit for fidelity to the existing Docker harness, ensure compile-probe and direct metadata-consumer coverage were strengthened in place rather than replaced, and rerun representative package/runtime gates.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/07-packaging-harness.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg
+    ```
+
+    ## Inline Verification Section
+    ### `check-packaging-harness-senior-tester`
+    - Phase ID: `check-packaging-harness-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-packaging-harness`
+    - purpose: review the packaging/harness commit for fidelity to the existing Docker harness, ensure compile-probe and direct metadata-consumer coverage were strengthened in place rather than replaced, and rerun representative package/runtime gates.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only ffmpeg`
+
+    ## Success Criteria
+    - The software tester runs the package build, install-tree validation, direct pkg-config/CMake consumer probes, tool-smoke matrix, targeted compile-probe dependents, targeted runtime dependents, and the full 12-dependent harness.
+    - The senior tester confirms the harness stayed linear and in-place, and reruns representative package/tool/pkg-config/CMake/compile/runtime checks against the generated packages.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: impl-final-hardening
+  type: implement
+  prompt: |
+    You are the implementer for `impl-final-hardening`.
+
+    Follow the phase plan below exactly. It is self-contained and authoritative for the work content of this phase. Use the existing artifacts listed in `Preexisting Inputs`; consume or update them in place instead of refetching, recollecting, rediscovering, or regenerating them from scratch. Do not invent new workflow topology or defer verifier work into this implement phase.
+
+    Before yielding, commit this phase's work to git. If no files changed, create an empty commit named `impl-final-hardening`.
+
+    ## Inline Phase Source
+    Source file: `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/08-final-hardening.md`
+
+    # Phase 8: Final Safety Reduction and Full Compatibility Sweep
+
+    ## Phase Name
+    Final Safety Reduction and Full Compatibility Sweep
+
+    ## Implement Phase ID
+    `impl-final-hardening`
+
+    ## Preexisting Inputs
+    - all committed source outputs from phases 1 through 7, excluding transient build, package, Docker, dist, and staging byproducts
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer/*`
+    - `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
+
+    ## New Outputs
+    - updated `safe/docs/unsafe-audit.md`
+    - any final compatibility fixes across `webp-core`, the export crates, package glue, harnesses, or tests
+    - any final regression tests needed to lock down issues surfaced by earlier reviewers
+
+    ## File Changes
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    - any of `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/**/*`
+    - any of `/home/yans/code/safelibs/ported/libwebp/safe/crates/lib{sharpyuv,webp,webpdecoder,webpdemux,webpmux}/**/*`
+    - any of `/home/yans/code/safelibs/ported/libwebp/safe/tests/**/*`
+    - any of `/home/yans/code/safelibs/ported/libwebp/safe/xtask/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh` or `/home/yans/code/safelibs/ported/libwebp/dependents.json` only if final runtime regressions require in-place harness adjustments
+
+    ## Implementation Details
+    - The implementer must create a git commit for this phase before yielding to `check-final-hardening-software-tester`.
+    - Use this as the catch-all phase for defects found by earlier software testers and senior testers, but always add or extend the reproducer before changing behavior.
+    - Restrict remaining explicit unsafe to unavoidable ABI boundaries, exported mutable object symbols, runtime-global hooks, and other boundary files already tracked by `safe/docs/unsafe-audit.md`.
+    - If `safe/crates/webp-core/src/lib.rs` can stop relying on `#![allow(unsafe_op_in_unsafe_fn)]` without destabilizing required FFI boundaries, narrow or remove that blanket allowance in this phase. If it must remain, keep it explicitly justified in `safe/docs/unsafe-audit.md` and do not add new crate-wide lint suppressions.
+    - Keep the relink manifest, full C suite, package surface, and Docker harness synchronized with any last-round fixes so the final verification remains reproducible from source.
+    - Treat `original/tests/public_api_test.c` plus the upstream fuzzer build as the required upstream-test proof, because that is the complete upstream test surface checked into `original/tests/`.
+
+    ## Verification Phases
+    ### `check-final-hardening-software-tester`
+    - Phase ID: `check-final-hardening-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-final-hardening`
+    - purpose: rerun the full ABI, source, link, runtime, package, direct installed-metadata consumer, harness, unsafe-audit, and upstream-fuzzer-build surface against the final source state.
+    - commands it should run:
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
+    ### `check-final-hardening-senior-tester`
+    - Phase ID: `check-final-hardening-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-final-hardening`
+    - purpose: perform the final senior review over the hardening commit, confirm the remaining explicit unsafe is justified and documented, and rerun representative end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `rg -n 'CVE-2016-9085|CVE-2020-36332|oversized_picture_alloc|malformed_huffman_tables' /home/yans/code/safelibs/ported/libwebp/relevant_cves.json /home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests`
+
+    ## Success Criteria
+    - The software tester executes the full final command matrix, including separate `ctest` passes for `build-c-tests --suite all` and `build-upstream-public-api-test`, the direct installed pkg-config/CMake consumer probes, and confirmation that the committed unsafe audit file is already current.
+    - The senior tester reviews the hardening diff, confirms the unsafe audit and CVE regressions still map to the checked-in risk model, and reruns the highest-signal end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off with the same separate C-test sequencing.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    ## Git Commit Requirement
+    The implementer must commit this phase's work to git before yielding to the verifier phases. If this phase has no file changes, the implementer must create an empty phase commit named `impl-final-hardening` before yielding.
+- id: check-final-hardening-software-tester
+  type: check
+  bounce_target: impl-final-hardening
+  prompt: |
+    You are a software-tester reviewer for `check-final-hardening-software-tester`.
+    Reviewer role: `software-tester`.
+
+    Review the git commit produced by `impl-final-hardening` and verify this explicit check phase only. Use the fixed bounce target `impl-final-hardening` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-final-hardening`
+    - `git commit produced by impl-abi-baseline`
+    - `git commit produced by impl-abi-runtime-sharpyuv`
+    - `git commit produced by impl-decode-core`
+    - `git commit produced by impl-demux-animdecode`
+    - `git commit produced by impl-encode-core`
+    - `git commit produced by impl-mux-animencode`
+    - `git commit produced by impl-packaging-harness`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/lib{sharpyuv,webp,webpdecoder,webpdemux,webpmux}/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+    - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer/*`
+    - `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-final-hardening` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: rerun the full ABI, source, link, runtime, package, direct installed-metadata consumer, harness, unsafe-audit, and upstream-fuzzer-build surface against the final source state.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/08-final-hardening.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist
+    ```
+
+    ## Inline Verification Section
+    ### `check-final-hardening-software-tester`
+    - Phase ID: `check-final-hardening-software-tester`
+    - reviewer role: `software-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-final-hardening`
+    - purpose: rerun the full ABI, source, link, runtime, package, direct installed-metadata consumer, harness, unsafe-audit, and upstream-fuzzer-build surface against the final source state.
+    - commands it should run:
+      - `cargo test --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml --workspace --release`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-sonames --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-needed --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- relink-original-objects --manifest /home/yans/code/safelibs/ported/libwebp/safe/abi/original/relink-manifest.json --fixtures webp_public_api_test cwebp dwebp img2webp webpinfo webpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only webkitgtk`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only qt6-image-formats-plugins`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sdl2-image`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only libvips`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only sail`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-fuzzers --source-dir /home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer --safe-prefix /home/yans/code/safelibs/ported/libwebp/safe/dist`
+
+    ## Success Criteria
+    - The software tester executes the full final command matrix, including separate `ctest` passes for `build-c-tests --suite all` and `build-upstream-public-api-test`, the direct installed pkg-config/CMake consumer probes, and confirmation that the committed unsafe audit file is already current.
+    - The senior tester reviews the hardening diff, confirms the unsafe audit and CVE regressions still map to the checked-in risk model, and reruns the highest-signal end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off with the same separate C-test sequencing.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
+- id: check-final-hardening-senior-tester
+  type: check
+  bounce_target: impl-final-hardening
+  prompt: |
+    You are a senior-tester reviewer for `check-final-hardening-senior-tester`.
+    Reviewer role: `senior-tester`.
+
+    Review the git commit produced by `impl-final-hardening` and verify this explicit check phase only. Use the fixed bounce target `impl-final-hardening` from `.plan/workflow-structure.yaml`; do not invent alternate bounce targets or move verifier work into an implement phase.
+
+    ## Preexisting Inputs
+    - `git commit produced by impl-final-hardening`
+    - `git commit produced by impl-abi-baseline`
+    - `git commit produced by impl-abi-runtime-sharpyuv`
+    - `git commit produced by impl-decode-core`
+    - `git commit produced by impl-demux-animdecode`
+    - `git commit produced by impl-encode-core`
+    - `git commit produced by impl-mux-animencode`
+    - `git commit produced by impl-packaging-harness`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/abi/original/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-abi/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/src/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/crates/lib{sharpyuv,webp,webpdecoder,webpdemux,webpmux}/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/tests/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/xtask/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/debian/{changelog,clean,control,copyright,gbp.conf,libsharpyuv-dev.install,libsharpyuv0.install,libwebp-dev.docs,libwebp-dev.install,libwebp7.install,libwebpdecoder3.install,libwebpdemux2.install,libwebpmux3.install,patches/*,rules,source/format,upstream/signing-key.asc,watch,webp.install,webp.manpages}`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/pkgconfig/*.pc.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/cmake/WebPConfig.cmake.in`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/include/**/*`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/man/*.1`
+    - `/home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+    - `/home/yans/code/safelibs/ported/libwebp/test-original.sh`
+    - `/home/yans/code/safelibs/ported/libwebp/dependents.json`
+    - `/home/yans/code/safelibs/ported/libwebp/original/tests/fuzzer/*`
+    - `/home/yans/code/safelibs/ported/libwebp/relevant_cves.json`
+
+    ## Specific Things to Verify
+    - The implementation phase `impl-final-hardening` produced a git commit before yielding.
+    - The implementation satisfies this phase purpose: perform the final senior review over the hardening commit, confirm the remaining explicit unsafe is justified and documented, and rerun representative end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off.
+    - The implementation consumed or updated the listed existing artifacts in place instead of refetching, recollecting, rediscovering, or regenerating substitutes from scratch.
+    - The implementation satisfies the inline verification section and success criteria copied from `/home/yans/safelibs/pipeline/ports/port-libwebp/.plan/phases/08-final-hardening.md` below.
+    - No unrelated generated byproducts are treated as required preexisting inputs.
+
+    ## Commands To Run
+    Run these commands in order:
+
+    ```bash
+    git status --short
+    git show --stat --summary HEAD
+    git diff --check HEAD^ HEAD
+    cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c
+    ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools
+    LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe
+    cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit
+    git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md
+    rg -n 'CVE-2016-9085|CVE-2020-36332|oversized_picture_alloc|malformed_huffman_tables' /home/yans/code/safelibs/ported/libwebp/relevant_cves.json /home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests
+    ```
+
+    ## Inline Verification Section
+    ### `check-final-hardening-senior-tester`
+    - Phase ID: `check-final-hardening-senior-tester`
+    - reviewer role: `senior-tester`
+    - type: `check`
+    - fixed `bounce_target`: `impl-final-hardening`
+    - purpose: perform the final senior review over the hardening commit, confirm the remaining explicit unsafe is justified and documented, and rerun representative end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off.
+    - commands it should run:
+      - `git status --short`
+      - `git show --stat --summary HEAD`
+      - `git diff --check HEAD^ HEAD`
+      - `cargo build --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -p libsharpyuv -p libwebpdecoder -p libwebp -p libwebpdemux -p libwebpmux --release`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-c-tests --suite all`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- build-upstream-public-api-test --source /home/yans/code/safelibs/ported/libwebp/original/tests/public_api_test.c`
+      - `ctest --test-dir /home/yans/code/safelibs/ported/libwebp/safe/build/tests -R webp_public_api_test --output-on-failure`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-symbols --baseline-dir /home/yans/code/safelibs/ported/libwebp/safe/abi/original --libs libsharpyuv libwebpdecoder libwebp libwebpdemux libwebpmux`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- package-deb --output-dir /tmp/libwebp-safe-debs`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- verify-install-tree --baseline /home/yans/code/safelibs/ported/libwebp/safe/abi/original/install-surface.json --package-dir /tmp/libwebp-safe-debs`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libwebp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only pkg-config-libsharpyuv`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only cmake-webp`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe --only tools`
+      - `LIBWEBP_SAFE_DEB_DIR=/tmp/libwebp-safe-debs /home/yans/code/safelibs/ported/libwebp/test-original.sh --variant safe`
+      - `cargo run -p xtask --manifest-path /home/yans/code/safelibs/ported/libwebp/safe/Cargo.toml -- unsafe-audit`
+      - `git diff --exit-code -- /home/yans/code/safelibs/ported/libwebp/safe/docs/unsafe-audit.md`
+      - `rg -n 'CVE-2016-9085|CVE-2020-36332|oversized_picture_alloc|malformed_huffman_tables' /home/yans/code/safelibs/ported/libwebp/relevant_cves.json /home/yans/code/safelibs/ported/libwebp/safe/crates/webp-core/tests`
+
+    ## Success Criteria
+    - The software tester executes the full final command matrix, including separate `ctest` passes for `build-c-tests --suite all` and `build-upstream-public-api-test`, the direct installed pkg-config/CMake consumer probes, and confirmation that the committed unsafe audit file is already current.
+    - The senior tester reviews the hardening diff, confirms the unsafe audit and CVE regressions still map to the checked-in risk model, and reruns the highest-signal end-to-end ABI/package/pkg-config/CMake/runtime gates before sign-off with the same separate C-test sequencing.
+    - All verifier commands listed above complete successfully in the stated order.
+    - Existing artifacts listed as preexisting inputs are consumed or updated in place; they are not rediscovered, replaced with substitutes, or treated as generated byproducts.
+    - Generated byproducts such as `safe/target/`, `safe/build/`, `safe/dist/`, `/tmp/*`, checked-out `.deb` outputs, and Debian staging directories remain reproducible outputs rather than required preexisting inputs.
+
+    End with exactly one verdict line:
+    VERDICT: PASS
+    VERDICT: FAIL: <reason>
