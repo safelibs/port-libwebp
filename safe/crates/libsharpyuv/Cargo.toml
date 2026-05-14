@@ -19,7 +19,7 @@ webp-abi = { path = "../webp-abi" }
 webp-core = { path = "../webp-core", default-features = false, features = ["sharpyuv"] }
 
 [build-dependencies]
-cc = "1.2.20"
+cc = "1.2.62"
 serde_json.workspace = true
 
 [lints]
